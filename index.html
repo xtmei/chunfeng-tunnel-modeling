@@ -2,9 +2,13 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>春风隧道“单洞双层”结构示意</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* 紧急修复：确保应用层撑满屏幕 */
+      #app { position: fixed; inset: 0; overflow: hidden; }
+    </style>
   </head>
   <body>
     <div id="app">
@@ -20,20 +24,32 @@
       </div>
 
       <div class="control-bar">
-        <button id="prev">上一幕</button>
-        <button id="play">暂停</button>
-        <button id="next">下一幕</button>
-        <label class="progress-wrap">
-          <span>进度</span>
-          <input id="progress" type="range" min="0" max="1" step="0.001" value="0" />
-        </label>
-        <label class="switch-wrap">
-          <input type="checkbox" id="toggle-labels" checked />
-          <span>显示标签</span>
-        </label>
+        <div class="top-controls">
+          <div class="btn-group">
+            <button id="prev">上一幕</button>
+            <button id="play">暂停</button>
+            <button id="next">下一幕</button>
+          </div>
+          <label class="switch-wrap">
+            <input type="checkbox" id="toggle-labels" checked />
+            <span>标签</span>
+          </label>
+        </div>
+        <div class="progress-wrap">
+          <input id="progress" type="range" min="0" max="1" step="0.0001" value="0" />
+        </div>
       </div>
     </div>
 
+    <!-- 使用更稳定的 CDN -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
     <script type="module" src="main.js"></script>
   </body>
 </html>

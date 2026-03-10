@@ -1,5 +1,5 @@
-import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const DIMENSIONS = {
   outerDiameter: 15.2,
@@ -20,8 +20,14 @@ const COLORS = {
 };
 
 const canvas = document.querySelector('#stage');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ 
+  canvas, 
+  antialias: true, 
+  alpha: true,
+  powerPreference: 'high-performance', // 提示移动端使用高性能 GPU
+  preserveDrawingBuffer: true // 提高部分手机端浏览器的截图和显示兼容性
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(COLORS.bgFog, 50, 220);
@@ -88,7 +94,6 @@ function buildTunnelAlignment() {
   lower.position.y -= 3.25;
   tunnelGroup.add(upper, lower);
 
-  // 采用示意化门户段：明挖段用半透明盒体表达，不做复杂地层建模。
   const pMat = mat(COLORS.portal, 0.33);
   const p1 = new THREE.Mesh(new THREE.BoxGeometry(22, 12, 18), pMat);
   p1.position.copy(centerlinePoint(0.03)).add(new THREE.Vector3(0, 4.6, 0));
@@ -125,34 +130,15 @@ function buildCrossSection() {
   hole.absarc(0, 0, DIMENSIONS.innerDiameter / 2, 0, Math.PI * 2, true);
   ring.holes.push(hole);
 
-  addPart(new THREE.ExtrudeGeometry(ring, { depth: 12, bevelEnabled: false }), mat(COLORS.ring, 0.95), '预制混凝土管片衬砌', new THREE.Vector3(0, 0, -6), new THREE.Vector3(0, 0, -11), new THREE.Vector3(0, 8.1, 0));
-  addPart(new THREE.BoxGeometry(13.1, 0.45, 12), mat(COLORS.slab), '中间楼板 / 车道板', new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 4.2, 0), new THREE.Vector3(0, 1.2, 0));
-  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '上层双车道 + 连续应急带（单向）', new THREE.Vector3(0, 2.7, 0), new THREE.Vector3(0, 8.1, 0), new THREE.Vector3(0, 3.7, 0));
-  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '下层双车道 + 连续应急带（单向）', new THREE.Vector3(0, -3.1, 0), new THREE.Vector3(0, -8.4, 0), new THREE.Vector3(0, -2.3, 0));
+  addPart(new THREE.ExtrudeGeometry(ring, { depth: 12, bevelEnabled: false }), mat(COLORS.ring, 0.95), '预制衬砌', new THREE.Vector3(0, 0, -6), new THREE.Vector3(0, 0, -11), new THREE.Vector3(0, 8.1, 0));
+  addPart(new THREE.BoxGeometry(13.1, 0.45, 12), mat(COLORS.slab), '车道板', new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 4.2, 0), new THREE.Vector3(0, 1.2, 0));
+  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '上层车道', new THREE.Vector3(0, 2.7, 0), new THREE.Vector3(0, 8.1, 0), new THREE.Vector3(0, 3.7, 0));
+  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '下层车道', new THREE.Vector3(0, -3.1, 0), new THREE.Vector3(0, -8.4, 0), new THREE.Vector3(0, -2.3, 0));
   addPart(new THREE.BoxGeometry(0.55, 7.2, 12), mat(COLORS.sideWall, 0.9), '侧墙', new THREE.Vector3(5.7, -0.2, 0), new THREE.Vector3(8.5, -0.2, 0), new THREE.Vector3(6.7, -0.3, 0));
   addPart(new THREE.BoxGeometry(0.55, 7.2, 12), mat(COLORS.sideWall, 0.9), '侧墙', new THREE.Vector3(-5.7, -0.2, 0), new THREE.Vector3(-8.5, -0.2, 0));
-  addPart(new THREE.BoxGeometry(0.25, 0.35, 12), mat(COLORS.accent), '防撞带 / 路缘', new THREE.Vector3(4.8, 2.9, 0), new THREE.Vector3(7.6, 7.7, 0));
-  addPart(new THREE.BoxGeometry(0.25, 0.35, 12), mat(COLORS.accent), '防撞带 / 路缘', new THREE.Vector3(4.8, -2.9, 0), new THREE.Vector3(7.6, -7.3, 0));
   addPart(new THREE.BoxGeometry(1.2, 1.1, 12), mat(COLORS.utility, 0.88), '设备带', new THREE.Vector3(-4.8, 4.2, 0), new THREE.Vector3(-8.1, 6.3, 0), new THREE.Vector3(-6.5, 5.2, 0));
   addPart(new THREE.CylinderGeometry(0.34, 0.34, 12, 16), mat(0x47b4ff, 0.9), '电缆管廊', new THREE.Vector3(-5, -4.6, 0), new THREE.Vector3(-8.2, -6.8, 0), new THREE.Vector3(-6.9, -5.5, 0));
-  addPart(new THREE.BoxGeometry(0.58, 0.45, 12), mat(0x5fc6ff, 0.86), '排水沟', new THREE.Vector3(4.4, -4.95, 0), new THREE.Vector3(7.4, -8.4, 0), new THREE.Vector3(6.2, -6.2, 0));
-  addPart(new THREE.BoxGeometry(2.6, 0.85, 12), mat(0x6fd5f8, 0.65), '通风 / 排烟通道', new THREE.Vector3(0, 5.7, 0), new THREE.Vector3(0, 10.2, 0), new THREE.Vector3(0, 7.2, 0));
-
-  const stair = new THREE.Group();
-  for (let i = 0; i < 7; i++) {
-    const step = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.24, 1.5), mat(0xd9e6f6));
-    step.position.set(-2.95 + i * 0.2, -1.2 + i * 0.32, -4.8 + i * 0.17);
-    stair.add(step);
-  }
-  stair.position.set(0, 0, 0);
-  crossGroup.add(stair);
-  componentParts.push({
-    mesh: stair,
-    basePos: stair.position.clone(),
-    explodePos: new THREE.Vector3(-4.8, 0.8, -5.8),
-    name: '疏散楼梯',
-    labelPos: new THREE.Vector3(-3.8, 0.8, -4.2),
-  });
+  addPart(new THREE.BoxGeometry(2.6, 0.85, 12), mat(0x6fd5f8, 0.65), '排烟通道', new THREE.Vector3(0, 5.7, 0), new THREE.Vector3(0, 10.2, 0), new THREE.Vector3(0, 7.2, 0));
 
   const heroCut = new THREE.Mesh(
     new THREE.CylinderGeometry(DIMENSIONS.outerDiameter / 2, DIMENSIONS.outerDiameter / 2, 24, 90, 1, true, -0.28 * Math.PI, 1.62 * Math.PI),
@@ -169,18 +155,7 @@ buildCrossSection();
 
 const labelLayer = document.querySelector('#label-layer');
 const labelMap = new Map();
-const keyNames = [
-  '预制混凝土管片衬砌',
-  '中间楼板 / 车道板',
-  '上层双车道 + 连续应急带（单向）',
-  '下层双车道 + 连续应急带（单向）',
-  '侧墙',
-  '设备带',
-  '疏散楼梯',
-  '电缆管廊',
-  '排水沟',
-  '通风 / 排烟通道',
-];
+const keyNames = ['预制衬砌', '车道板', '上层车道', '下层车道', '侧墙', '设备带', '电缆管廊', '排烟通道'];
 keyNames.forEach((name) => {
   const div = document.createElement('div');
   div.className = 'label';
@@ -190,11 +165,11 @@ keyNames.forEach((name) => {
 });
 
 const scenes = [
-  { title: 'Scene 1 · 城市到地下 Reveal：地表道路逐步淡出，显露春风隧道单洞双层整体走向。', duration: 12 },
-  { title: `Scene 2 · 横截面核心结构：外径约 ${DIMENSIONS.outerDiameter}m、内径约 ${DIMENSIONS.innerDiameter}m。注：开挖直径约 ${DIMENSIONS.excavDiameter}m（非衬砌内径）。`, duration: 12 },
-  { title: 'Scene 3 · 爆炸分解：管片衬砌、楼板、双层车道及附属空间有序展开并回收。', duration: 12 },
-  { title: 'Scene 4 · 纵向剖面：两端明挖门户段与中间盾构段关系，两端浅、中段深。', duration: 12 },
-  { title: 'Scene 5 · Hero Shot：单洞双层剖切总览，适合科普展示封面。', duration: 12 },
+  { title: 'Scene 1 · 整体走向：显露春风隧道单洞双层地下走向。', duration: 12 },
+  { title: `Scene 2 · 核心参数：外径 ${DIMENSIONS.outerDiameter}m，内径 ${DIMENSIONS.innerDiameter}m。`, duration: 12 },
+  { title: 'Scene 3 · 爆炸分解：各功能组件动态展开演示。', duration: 12 },
+  { title: 'Scene 4 · 纵向剖面：两端明挖门户段与中间盾构段关系。', duration: 12 },
+  { title: 'Scene 5 · 全景总览：单洞双层剖切全景展示。', duration: 12 },
 ];
 
 const totalDuration = scenes.reduce((a, s) => a + s.duration, 0);
@@ -315,13 +290,23 @@ function animateScene() {
 }
 
 function resize() {
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const container = document.querySelector('#scene-wrap');
+  const w = container.clientWidth;
+  const h = container.clientHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
+
+// 核心修复：针对手机端的视口高度变化进行实时监听
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+
+// 阻止页面默认滑动行为，避免 3D 交互冲突
+document.addEventListener('touchmove', (e) => {
+  if (e.target.closest('#scene-wrap')) e.preventDefault();
+}, { passive: false });
+
 resize();
 
 const clock = new THREE.Clock();
