@@ -1,0 +1,48 @@
+:root {
+  --bg: #081426;
+  --panel: rgba(10, 24, 46, 0.72);
+  --line: rgba(144, 205, 244, 0.35);
+  --text: #eaf4ff;
+  --sub: #9fb9d3;
+  --accent: #4fd1ff;
+  --orange: #ff9a3d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; background: radial-gradient(circle at 50% -20%, #1a355f 0%, var(--bg) 58%); color: var(--text); }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+.hero-title { padding: 14px 18px 8px; text-align: center; backdrop-filter: blur(8px); }
+.hero-title h1 { margin: 0; font-size: clamp(20px, 3vw, 34px); font-weight: 620; letter-spacing: 0.03em; }
+.hero-title p { margin: 8px 0 0; color: var(--sub); font-size: clamp(12px, 1.5vw, 15px); }
+
+#scene-wrap { position: relative; flex: 1; min-height: 0; }
+#stage { width: 100%; height: 100%; display: block; }
+#label-layer { position: absolute; inset: 0; pointer-events: none; }
+.label {
+  position: absolute; transform: translate(-50%, -50%); padding: 5px 10px; border: 1px solid var(--line);
+  border-radius: 999px; background: rgba(11, 30, 54, 0.75); color: #e6f8ff; font-size: clamp(11px, 1.15vw, 14px);
+  white-space: nowrap; backdrop-filter: blur(4px); transition: opacity 0.35s;
+}
+.scene-caption {
+  position: absolute; left: 16px; bottom: 18px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(5, 20, 40, 0.64); color: #d7e8ff; font-size: clamp(12px, 1.4vw, 15px); max-width: min(90vw, 560px);
+}
+
+.control-bar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px 12px;
+  background: linear-gradient(to top, rgba(4, 16, 32, 0.92), rgba(4, 16, 32, 0.62)); border-top: 1px solid var(--line);
+}
+button {
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 10px;
+  padding: 8px 12px; font-size: 13px; cursor: pointer;
+}
+button:hover { border-color: #78d8ff; }
+.progress-wrap { display: flex; align-items: center; gap: 8px; flex: 1; color: var(--sub); font-size: 13px; }
+#progress { width: 100%; accent-color: var(--accent); }
+.switch-wrap { display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 13px; white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .control-bar { flex-wrap: wrap; gap: 8px; }
+  .progress-wrap { order: 2; width: 100%; }
+}
