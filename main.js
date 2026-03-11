@@ -127,6 +127,11 @@ function mat(color, options = {}) {
     emissive = 0x000000,
     emissiveIntensity = 0,
     side = THREE.FrontSide,
+    depthWrite = opacity >= 0.999,
+    depthTest = true,
+    polygonOffset = false,
+    polygonOffsetFactor = 0,
+    polygonOffsetUnits = 0,
   } = options;
   const material = new THREE.MeshStandardMaterial({
     color,
@@ -137,6 +142,11 @@ function mat(color, options = {}) {
     emissive,
     emissiveIntensity,
     side,
+    depthWrite,
+    depthTest,
+    polygonOffset,
+    polygonOffsetFactor,
+    polygonOffsetUnits,
   });
   material.userData.baseOpacity = opacity;
   return material;
@@ -177,14 +187,24 @@ function addLaneStripMarks(parent, y = 0.18, width = 10.8, length = 12) {
   const edgeWidth = 0.16;
   const dashLength = 1.25;
   const dashCount = 5;
-  const edgeLeft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(edgeWidth, 0.025, length + 0.1), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+  const edgeLeft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(edgeWidth, 0.025, length + 0.1), mat(COLORS.marking, {
+    roughness: 0.72,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })), false, true);
   edgeLeft.position.set(-(width / 2) + 0.38, y, 0);
   const edgeRight = edgeLeft.clone();
   edgeRight.position.x *= -1;
   parent.add(edgeLeft, edgeRight);
 
   for (let i = 0; i < dashCount; i++) {
-    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, dashLength), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, dashLength), mat(COLORS.marking, {
+      roughness: 0.72,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })), false, true);
     dash.position.set(0, y, -4.6 + i * 2.3);
     parent.add(dash);
   }
@@ -194,14 +214,24 @@ function addHeroLaneMarks(parent, y = 0.12, width = 10.8, length = 16.2) {
   const edgeWidth = 0.16;
   const dashLength = 1.45;
   const dashCount = 5;
-  const edgeNear = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(length + 0.1, 0.025, edgeWidth), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+  const edgeNear = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(length + 0.1, 0.025, edgeWidth), mat(COLORS.marking, {
+    roughness: 0.72,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })), false, true);
   edgeNear.position.set(0, y, -(width / 2) + 0.38);
   const edgeFar = edgeNear.clone();
   edgeFar.position.z *= -1;
   parent.add(edgeNear, edgeFar);
 
   for (let i = 0; i < dashCount; i++) {
-    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(dashLength, 0.025, 0.18), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(dashLength, 0.025, 0.18), mat(COLORS.marking, {
+      roughness: 0.72,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })), false, true);
     dash.position.set(-5.6 + i * 2.8, y, 0);
     parent.add(dash);
   }
@@ -225,7 +255,12 @@ function addDeckRoadsideDetails(parent, side = 1, length = 12) {
 
   const shoulderStripe = configureMesh(new THREE.Mesh(
     new THREE.BoxGeometry(0.18, 0.025, length - 0.1),
-    mat(COLORS.caution, { roughness: 0.72 })
+    mat(COLORS.caution, {
+      roughness: 0.72,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })
   ), false, true);
   shoulderStripe.position.set(side * 2.28, 0.03, 0);
   parent.add(shoulderStripe);
@@ -235,6 +270,9 @@ function addDeckRoadsideDetails(parent, side = 1, length = 12) {
       roughness: 0.25,
       emissive: 0xaacfff,
       emissiveIntensity: 0.22,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     })), false, true);
     roadStud.position.set(side * 1.16, 0.045, z);
     parent.add(roadStud);
@@ -263,9 +301,19 @@ function addDeckRoadsideDetails(parent, side = 1, length = 12) {
 
 function addLaneArrow(parent, x, z, rotation = 0) {
   const arrowGroup = new THREE.Group();
-  const shaft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.88), mat(COLORS.marking, { roughness: 0.7 })), false, true);
+  const shaft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.88), mat(COLORS.marking, {
+    roughness: 0.7,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })), false, true);
   shaft.position.z = -0.12;
-  const head = configureMesh(new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 3), mat(COLORS.marking, { roughness: 0.7 })), false, true);
+  const head = configureMesh(new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 3), mat(COLORS.marking, {
+    roughness: 0.7,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })), false, true);
   head.rotation.x = Math.PI / 2;
   head.position.z = 0.42;
   arrowGroup.add(shaft, head);
@@ -759,7 +807,7 @@ function buildCrossSection() {
 
   const rockPart = addPart(
     createGroundBandGeometry(58, 7.2, -20.5),
-    mat(COLORS.rockLayer, { opacity: 0.98, roughness: 0.98 }),
+    mat(COLORS.rockLayer, { roughness: 0.98 }),
     '硬岩层',
     new THREE.Vector3(0, 0, -8),
     new THREE.Vector3(0, 0, -8),
@@ -767,7 +815,7 @@ function buildCrossSection() {
   );
   const weatheredPart = addPart(
     createGroundBandGeometry(58, 12.8, 7.2),
-    mat(COLORS.weatheredLayer, { opacity: 0.94, roughness: 0.95 }),
+    mat(COLORS.weatheredLayer, { roughness: 0.95 }),
     '强风化层',
     new THREE.Vector3(0, 0, -8),
     new THREE.Vector3(0, 0, -8),
@@ -775,7 +823,7 @@ function buildCrossSection() {
   );
   const fillPart = addPart(
     createGroundBandGeometry(58, 18.8, 12.8),
-    mat(COLORS.fillLayer, { opacity: 0.94, roughness: 0.94 }),
+    mat(COLORS.fillLayer, { roughness: 0.94 }),
     '人工填土层',
     new THREE.Vector3(0, 0, -8),
     new THREE.Vector3(0, 0, -8),
@@ -783,7 +831,16 @@ function buildCrossSection() {
   );
   const waterPart = addPart(
     createGroundBandGeometry(58, 11.25, 10.9, DIMENSIONS.excavDiameter / 2 + 0.7),
-    mat(COLORS.groundwater, { opacity: 0.62, roughness: 0.38, metalness: 0.02 }),
+    mat(COLORS.groundwater, {
+      opacity: 0.95,
+      roughness: 0.3,
+      metalness: 0.04,
+      emissive: 0x11608a,
+      emissiveIntensity: 0.12,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
     '地下水位',
     new THREE.Vector3(0, 0, -8),
     new THREE.Vector3(0, 0, -8),
@@ -792,7 +849,14 @@ function buildCrossSection() {
 
   const faultPart = addPart(
     new THREE.BoxGeometry(4, 31, 16.1),
-    mat(COLORS.faultLayer, { opacity: 0.24, roughness: 0.94 }),
+    mat(COLORS.faultLayer, {
+      opacity: 0.16,
+      roughness: 0.94,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    }),
     '断层破碎带',
     new THREE.Vector3(15.6, 0.8, 0),
     new THREE.Vector3(15.6, 0.8, 0),
@@ -800,12 +864,17 @@ function buildCrossSection() {
   );
   faultPart.mesh.rotation.z = -0.3;
 
+  const frontBoundaryMat = new THREE.LineBasicMaterial({ color: 0x2f373c, transparent: true, opacity: 0.9 });
   for (const y of [12.8, 7.2]) {
-    const boundary = configureMesh(new THREE.Mesh(
-      createGroundBandGeometry(58, y + 0.1, y - 0.1, DIMENSIONS.excavDiameter / 2 + 0.64),
-      mat(0x3b454a, { opacity: 0.52, roughness: 0.86 })
-    ), false, true);
-    boundary.position.set(0, 0, -8);
+    const boundary = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-29, y, 8.04),
+        new THREE.Vector3(-8.5, y, 8.04),
+        new THREE.Vector3(8.5, y, 8.04),
+        new THREE.Vector3(29, y, 8.04),
+      ]),
+      frontBoundaryMat
+    );
     crossGroup.add(boundary);
   }
 
@@ -821,7 +890,12 @@ function buildCrossSection() {
   median.position.set(0, 0.34, 0);
   surfaceRoad.mesh.add(median);
   for (const x of [-10.5, -4.2, 4.2, 10.5]) {
-    const laneStripe = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 16.2), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    const laneStripe = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 16.2), mat(COLORS.marking, {
+      roughness: 0.72,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })), false, true);
     laneStripe.position.set(x, 0.3, 0);
     surfaceRoad.mesh.add(laneStripe);
   }
@@ -993,8 +1067,10 @@ const captionEl = document.querySelector('#scene-caption');
 const resetBtn = document.querySelector('#reset-view');
 const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
-const defaultCameraPosition = new THREE.Vector3(19, 12, 28);
-const defaultTarget = new THREE.Vector3(0, 2.8, 0);
+const desktopCameraPosition = new THREE.Vector3(19, 12, 28);
+const desktopTarget = new THREE.Vector3(0, 2.8, 0);
+const mobileCameraPosition = new THREE.Vector3(31, 18, 47);
+const mobileTarget = new THREE.Vector3(0, 4.6, 0);
 const tmp = new THREE.Vector3();
 const worldLabelPos = new THREE.Vector3();
 const localCameraPos = new THREE.Vector3();
@@ -1026,8 +1102,10 @@ function applyInteractiveLayout() {
 }
 
 function resetView() {
-  camera.position.copy(defaultCameraPosition);
-  controls.target.copy(defaultTarget);
+  const position = compactUI ? mobileCameraPosition : desktopCameraPosition;
+  const target = compactUI ? mobileTarget : desktopTarget;
+  camera.position.copy(position);
+  controls.target.copy(target);
   controls.update();
 }
 
@@ -1040,8 +1118,8 @@ function updateResponsiveFlags() {
     labelToggle.checked = showLabels;
   }
 
-  controls.minDistance = compactUI ? 12 : 10;
-  controls.maxDistance = compactUI ? 48 : 52;
+  controls.minDistance = compactUI ? 10 : 10;
+  controls.maxDistance = compactUI ? 78 : 52;
 }
 
 function syncViewportHeight() {
