@@ -35,6 +35,12 @@ const COLORS = {
   groundwater: 0x2e98de,
   surfaceRoad: 0x50555c,
   sidewalk: 0x8f9499,
+  fireCabinet: 0xba3b30,
+  emergencyPhone: 0x46a86d,
+  signBoard: 0x2f5f8a,
+  caution: 0xd7c35b,
+  servicePipe: 0xb74135,
+  reflector: 0xe9f2ff,
 };
 
 const canvas = document.querySelector('#stage');
@@ -207,6 +213,186 @@ function addBarrierRails(parent, xOffset, length = 12) {
   const rail = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, length + 0.1), mat(COLORS.linework, { opacity: 0.88, roughness: 0.48, metalness: 0.25 })), false, true);
   rail.position.set(xOffset - Math.sign(xOffset) * 0.06, 0.72, 0);
   parent.add(barrier, rail);
+}
+
+function addDeckRoadsideDetails(parent, side = 1, length = 12) {
+  const shoulder = configureMesh(new THREE.Mesh(
+    new THREE.BoxGeometry(2.1, 0.03, length - 0.1),
+    mat(0x3c4246, { roughness: 0.96 })
+  ), false, true);
+  shoulder.position.set(side * 3.35, 0.02, 0);
+  parent.add(shoulder);
+
+  const shoulderStripe = configureMesh(new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.025, length - 0.1),
+    mat(COLORS.caution, { roughness: 0.72 })
+  ), false, true);
+  shoulderStripe.position.set(side * 2.28, 0.03, 0);
+  parent.add(shoulderStripe);
+
+  for (const z of [-4.7, -2.35, 0, 2.35, 4.7]) {
+    const roadStud = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.035, 0.18), mat(COLORS.reflector, {
+      roughness: 0.25,
+      emissive: 0xaacfff,
+      emissiveIntensity: 0.22,
+    })), false, true);
+    roadStud.position.set(side * 1.16, 0.045, z);
+    parent.add(roadStud);
+
+    const grate = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.22), mat(0x6d7479, { roughness: 0.82 })), false, true);
+    grate.position.set(side * 4.28, 0.03, z);
+    parent.add(grate);
+  }
+
+  for (const z of [-4.8, -2.4, 0, 2.4, 4.8]) {
+    const delineator = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.32, 0.08), mat(0xd8dfe6, {
+      roughness: 0.55,
+    })), false, true);
+    delineator.position.set(side * 4.72, 0.6, z);
+    parent.add(delineator);
+
+    const reflector = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.11), mat(COLORS.caution, {
+      roughness: 0.25,
+      emissive: COLORS.caution,
+      emissiveIntensity: 0.16,
+    })), false, true);
+    reflector.position.set(-side * 0.05, 0.02, 0);
+    delineator.add(reflector);
+  }
+}
+
+function addLaneArrow(parent, x, z, rotation = 0) {
+  const arrowGroup = new THREE.Group();
+  const shaft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.88), mat(COLORS.marking, { roughness: 0.7 })), false, true);
+  shaft.position.z = -0.12;
+  const head = configureMesh(new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 3), mat(COLORS.marking, { roughness: 0.7 })), false, true);
+  head.rotation.x = Math.PI / 2;
+  head.position.z = 0.42;
+  arrowGroup.add(shaft, head);
+  arrowGroup.position.set(x, 0.04, z);
+  arrowGroup.rotation.y = rotation;
+  parent.add(arrowGroup);
+}
+
+function addWallEmergencyDetails(wallMesh, side = 1) {
+  const insideX = -side * 0.19;
+
+  for (const z of [-4.6, -2.3, 0, 2.3, 4.6]) {
+    const upperMarker = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.2), mat(COLORS.reflector, {
+      roughness: 0.22,
+      emissive: 0xbfdcff,
+      emissiveIntensity: 0.28,
+    })), false, true);
+    upperMarker.position.set(insideX, 2.9, z);
+    wallMesh.add(upperMarker);
+
+    const lowerMarker = upperMarker.clone();
+    lowerMarker.position.y = -2.75;
+    wallMesh.add(lowerMarker);
+  }
+
+  const cableTray = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 12.05), mat(0x72787d, {
+    roughness: 0.74,
+  })), false, true);
+  cableTray.position.set(insideX, 3.15, 0);
+  wallMesh.add(cableTray);
+
+  for (const z of [-4.2, -1.4, 1.4, 4.2]) {
+    const bracket = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.38, 0.08), mat(COLORS.steel, { roughness: 0.64 })), false, true);
+    bracket.position.set(insideX + side * 0.08, 2.95, z);
+    wallMesh.add(bracket);
+  }
+
+  const equipmentLevels = [
+    { y: 2.15, z: 4.9, color: COLORS.fireCabinet, accent: COLORS.caution },
+    { y: -2.55, z: 4.25, color: COLORS.emergencyPhone, accent: 0xd9f7e3 },
+  ];
+  for (const { y, z, color, accent } of equipmentLevels) {
+    const cabinet = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(0.32, 1.02, 0.7, 3, 0.04), mat(color, {
+      roughness: 0.6,
+      metalness: 0.06,
+    })), false, true);
+    cabinet.position.set(insideX, y, z);
+    wallMesh.add(cabinet);
+
+    const panel = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.28), mat(accent, {
+      roughness: 0.24,
+      emissive: accent,
+      emissiveIntensity: 0.28,
+    })), false, true);
+    panel.position.set(-side * 0.16, 0, 0);
+    cabinet.add(panel);
+  }
+
+  const sign = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, 0.62), mat(0x2b8b57, {
+    roughness: 0.32,
+    emissive: 0x2b8b57,
+    emissiveIntensity: 0.2,
+  })), false, true);
+  sign.position.set(insideX, -1.2, 4.8);
+  wallMesh.add(sign);
+}
+
+function addCrownInteriorDetails(smokeMesh) {
+  const fireMain = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 12.1, 18), mat(COLORS.servicePipe, {
+    roughness: 0.52,
+  })), false, true);
+  fireMain.rotation.x = Math.PI / 2;
+  fireMain.position.set(0, -0.48, 0);
+  smokeMesh.add(fireMain);
+
+  for (const z of [-4.2, -2.1, 0, 2.1, 4.2]) {
+    const dropper = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.38, 12), mat(COLORS.steel, {
+      roughness: 0.56,
+    })), false, true);
+    dropper.position.set(0, -0.52, z);
+    smokeMesh.add(dropper);
+
+    const sprinkler = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.12, 12), mat(COLORS.caution, {
+      roughness: 0.34,
+      metalness: 0.06,
+    })), false, true);
+    sprinkler.position.set(0, -0.78, z);
+    smokeMesh.add(sprinkler);
+  }
+
+  for (const z of [-3.8, 0, 3.8, 5]) {
+    const cameraPole = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.36, 10), mat(COLORS.steel, {
+      roughness: 0.62,
+    })), false, true);
+    cameraPole.position.set(z > 4 ? 0 : 1.2, -0.56, z);
+    smokeMesh.add(cameraPole);
+
+    const camera = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(0.28, 0.14, 0.16, 3, 0.02), mat(0x2a2e33, {
+      roughness: 0.48,
+    })), false, true);
+    camera.position.set(z > 4 ? 0.18 : 1.38, -0.76, z);
+    smokeMesh.add(camera);
+  }
+
+  for (const z of [-4.1, 0.8, 4.4, 5.2]) {
+    const signFrame = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.18, 0.1), mat(COLORS.signBoard, {
+      roughness: 0.44,
+      emissive: COLORS.signBoard,
+      emissiveIntensity: 0.16,
+    })), false, true);
+    signFrame.position.set(0, -1.08, z);
+    smokeMesh.add(signFrame);
+
+    const supportLeft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.04), mat(COLORS.steel, { roughness: 0.64 })), false, true);
+    supportLeft.position.set(-0.94, -0.8, z);
+    const supportRight = supportLeft.clone();
+    supportRight.position.x *= -1;
+    smokeMesh.add(supportLeft, supportRight);
+
+    const strip = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.03, 0.04), mat(0xeff4fb, {
+      roughness: 0.26,
+      emissive: 0xbfd7f3,
+      emissiveIntensity: 0.22,
+    })), false, true);
+    strip.position.set(0, 0, 0.06);
+    signFrame.add(strip);
+  }
 }
 
 function addRingJoints(part) {
@@ -681,6 +867,12 @@ function buildCrossSection() {
   addBarrierRails(upperLane.mesh, -4.95);
   addBarrierRails(lowerLane.mesh, 4.95);
   addBarrierRails(lowerLane.mesh, -4.95);
+  addDeckRoadsideDetails(upperLane.mesh, 1);
+  addDeckRoadsideDetails(lowerLane.mesh, 1);
+  addLaneArrow(upperLane.mesh, -1.2, -3.3);
+  addLaneArrow(upperLane.mesh, 1.35, 1.5);
+  addLaneArrow(lowerLane.mesh, -1.2, -2.9);
+  addLaneArrow(lowerLane.mesh, 1.35, 1.9);
 
   const rightWall = addPart(
     new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
@@ -702,6 +894,8 @@ function buildCrossSection() {
     cap.position.set(0, 3.55, 0);
     wallPart.mesh.add(cap);
   });
+  addWallEmergencyDetails(rightWall.mesh, 1);
+  addWallEmergencyDetails(leftWall.mesh, -1);
 
   const utilityPart = addPart(
     new RoundedBoxGeometry(1.2, 1.1, 12, 4, 0.05),
@@ -749,6 +943,7 @@ function buildCrossSection() {
     slot.position.set(0, 0.18, z);
     smokePart.mesh.add(slot);
   }
+  addCrownInteriorDetails(smokePart.mesh);
 
   addCrossLights();
   buildHeroCutAssembly();
