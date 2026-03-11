@@ -28,6 +28,13 @@ const COLORS = {
   lightCool: 0xdbe9f6,
   shadow: 0x19212a,
   linework: 0x7a8590,
+  fillLayer: 0xc1a17b,
+  weatheredLayer: 0x8c745b,
+  rockLayer: 0x48565d,
+  faultLayer: 0x9e6c58,
+  groundwater: 0x2e98de,
+  surfaceRoad: 0x50555c,
+  sidewalk: 0x8f9499,
 };
 
 const canvas = document.querySelector('#stage');
@@ -143,6 +150,21 @@ function setGroupOpacity(group, factor) {
 
 function circlePoints(radius, z) {
   return new THREE.EllipseCurve(0, 0, radius, radius, 0, Math.PI * 2).getPoints(72).map((p) => new THREE.Vector3(p.x, p.y, z));
+}
+
+function createGroundBandGeometry(width, topY, bottomY, holeRadius = DIMENSIONS.excavDiameter / 2 + 0.6, depth = 16) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, bottomY);
+  shape.lineTo(width / 2, bottomY);
+  shape.lineTo(width / 2, topY);
+  shape.lineTo(-width / 2, topY);
+  shape.closePath();
+
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, holeRadius, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
 }
 
 function addLaneStripMarks(parent, y = 0.18, width = 10.8, length = 12) {
@@ -539,6 +561,80 @@ function buildCrossSection() {
   hole.absarc(0, 0, DIMENSIONS.innerDiameter / 2, 0, Math.PI * 2, true);
   ringShape.holes.push(hole);
 
+  const rockPart = addPart(
+    createGroundBandGeometry(58, 7.2, -20.5),
+    mat(COLORS.rockLayer, { opacity: 0.98, roughness: 0.98 }),
+    '硬岩层',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(18.5, -11.5, 0)
+  );
+  const weatheredPart = addPart(
+    createGroundBandGeometry(58, 12.8, 7.2),
+    mat(COLORS.weatheredLayer, { opacity: 0.94, roughness: 0.95 }),
+    '强风化层',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(18.2, 10.1, 0)
+  );
+  const fillPart = addPart(
+    createGroundBandGeometry(58, 18.8, 12.8),
+    mat(COLORS.fillLayer, { opacity: 0.94, roughness: 0.94 }),
+    '人工填土层',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(-18.5, 15.8, 0)
+  );
+  const waterPart = addPart(
+    createGroundBandGeometry(58, 11.25, 10.9, DIMENSIONS.excavDiameter / 2 + 0.7),
+    mat(COLORS.groundwater, { opacity: 0.62, roughness: 0.38, metalness: 0.02 }),
+    '地下水位',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(18.5, 11.8, 0)
+  );
+
+  const faultPart = addPart(
+    new THREE.BoxGeometry(4, 31, 16.1),
+    mat(COLORS.faultLayer, { opacity: 0.24, roughness: 0.94 }),
+    '断层破碎带',
+    new THREE.Vector3(15.6, 0.8, 0),
+    new THREE.Vector3(15.6, 0.8, 0),
+    new THREE.Vector3(17.2, 4.8, 0)
+  );
+  faultPart.mesh.rotation.z = -0.3;
+
+  for (const y of [12.8, 7.2]) {
+    const boundary = configureMesh(new THREE.Mesh(
+      createGroundBandGeometry(58, y + 0.1, y - 0.1, DIMENSIONS.excavDiameter / 2 + 0.64),
+      mat(0x3b454a, { opacity: 0.52, roughness: 0.86 })
+    ), false, true);
+    boundary.position.set(0, 0, -8);
+    crossGroup.add(boundary);
+  }
+
+  const surfaceRoad = addPart(
+    new RoundedBoxGeometry(34, 0.55, 16.1, 4, 0.08),
+    mat(COLORS.surfaceRoad, { roughness: 0.98 }),
+    '春风路地表',
+    new THREE.Vector3(0, 19.25, 0),
+    new THREE.Vector3(0, 19.25, 0),
+    new THREE.Vector3(0, 21.2, 0)
+  );
+  const median = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 16.15), mat(0x737c62, { roughness: 1 })), false, true);
+  median.position.set(0, 0.34, 0);
+  surfaceRoad.mesh.add(median);
+  for (const x of [-10.5, -4.2, 4.2, 10.5]) {
+    const laneStripe = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 16.2), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    laneStripe.position.set(x, 0.3, 0);
+    surfaceRoad.mesh.add(laneStripe);
+  }
+  for (const x of [-16.9, 16.9]) {
+    const sidewalk = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.24, 16.1), mat(COLORS.sidewalk, { roughness: 0.92 })), false, true);
+    sidewalk.position.set(x, 0.35, 0);
+    surfaceRoad.mesh.add(sidewalk);
+  }
+
   const ringPart = addPart(
     new THREE.ExtrudeGeometry(ringShape, { depth: 12, bevelEnabled: false }),
     mat(COLORS.ring, { opacity: 0.98, roughness: 0.9 }),
@@ -664,7 +760,7 @@ buildCrossSection();
 
 const labelLayer = document.querySelector('#label-layer');
 const labelMap = new Map();
-const keyNames = ['预制衬砌', '车道板', '上层车道', '下层车道', '侧墙', '设备带', '电缆管廊', '排烟通道'];
+const keyNames = ['春风路地表', '人工填土层', '强风化层', '断层破碎带', '硬岩层', '地下水位', '预制衬砌', '车道板', '上层车道', '下层车道', '侧墙', '设备带', '电缆管廊', '排烟通道'];
 keyNames.forEach((name) => {
   const div = document.createElement('div');
   div.className = 'label';
@@ -677,14 +773,14 @@ let showLabels = true;
 let compactUI = false;
 let labelsTouched = false;
 
-const compactVisibleLabels = new Set(['预制衬砌', '上层车道', '下层车道', '排烟通道']);
+const compactVisibleLabels = new Set(['春风路地表', '硬岩层', '上层车道', '下层车道']);
 
 const captionEl = document.querySelector('#scene-caption');
 const resetBtn = document.querySelector('#reset-view');
 const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
-const defaultCameraPosition = new THREE.Vector3(18, 10, 24);
-const defaultTarget = new THREE.Vector3(0, 0.6, 0);
+const defaultCameraPosition = new THREE.Vector3(19, 12, 28);
+const defaultTarget = new THREE.Vector3(0, 2.8, 0);
 const tmp = new THREE.Vector3();
 const worldLabelPos = new THREE.Vector3();
 const localCameraPos = new THREE.Vector3();
@@ -697,7 +793,7 @@ function applyInteractiveLayout() {
   longitudinalGroup.visible = false;
   heroCutGroup.visible = false;
   crossGroup.visible = true;
-  crossGroup.rotation.set(0, -0.24, 0);
+  crossGroup.rotation.set(0, -0.18, 0);
   crossGroup.position.set(0, 0, 0);
   componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
 
@@ -789,7 +885,7 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 
-captionEl.textContent = `单洞双层横断面剖切示意 · 外径 ${DIMENSIONS.outerDiameter}m / 内径 ${DIMENSIONS.innerDiameter}m`;
+captionEl.innerHTML = `沿春风路（滨河大道上步立交—新秀立交）典型剖面示意。<br>盾构段约 3.6km，埋深 6.9-46.3m，地层呈上软下硬，80% 以上为硬岩，并穿越 11 条断层破碎带。`;
 labelToggle.addEventListener('change', (e) => {
   labelsTouched = true;
   showLabels = e.target.checked;
