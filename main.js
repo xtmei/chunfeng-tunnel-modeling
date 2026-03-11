@@ -274,6 +274,16 @@ function addLaneArrow(parent, x, z, rotation = 0) {
   parent.add(arrowGroup);
 }
 
+function addDeckEdgeBeam(parent, yOffset = -0.3, z = 0) {
+  for (const x of [-4.7, 4.7]) {
+    const beam = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.42, 12.05, 4, 0.05), mat(0x9ea5ab, {
+      roughness: 0.84,
+    })), false, true);
+    beam.position.set(x, yOffset, z);
+    parent.add(beam);
+  }
+}
+
 function addWallEmergencyDetails(wallMesh, side = 1) {
   const insideX = -side * 0.19;
 
@@ -835,21 +845,30 @@ function buildCrossSection() {
     new RoundedBoxGeometry(13.1, 0.48, 12, 4, 0.08),
     mat(COLORS.slab, { roughness: 0.92 }),
     '车道板',
-    new THREE.Vector3(0, -0.2, 0),
+    new THREE.Vector3(0, 2.42, 0),
     new THREE.Vector3(0, 4.2, 0),
-    new THREE.Vector3(0, 1.2, 0)
+    new THREE.Vector3(0, 1.95, 0)
   );
   for (const x of [-4.8, 4.8]) {
     const gutter = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.1, 12.1), mat(0xa4aaaf, { roughness: 0.92 })), false, true);
     gutter.position.set(x, -0.22, 0);
     slabPart.mesh.add(gutter);
   }
+  addDeckEdgeBeam(slabPart.mesh);
+
+  const lowerDeckSlab = configureMesh(new THREE.Mesh(
+    new RoundedBoxGeometry(13.1, 0.52, 12, 4, 0.08),
+    mat(0xb9c0c5, { roughness: 0.94 })
+  ), false, true);
+  lowerDeckSlab.position.set(0, -3.46, 0);
+  addDeckEdgeBeam(lowerDeckSlab);
+  crossGroup.add(lowerDeckSlab);
 
   const upperLane = addPart(
     new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
     mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
     '上层车道',
-    new THREE.Vector3(0, 2.7, 0),
+    new THREE.Vector3(0, 2.77, 0),
     new THREE.Vector3(0, 8.1, 0),
     new THREE.Vector3(0, 3.7, 0)
   );
@@ -857,7 +876,7 @@ function buildCrossSection() {
     new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
     mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
     '下层车道',
-    new THREE.Vector3(0, -3.1, 0),
+    new THREE.Vector3(0, -3.16, 0),
     new THREE.Vector3(0, -8.4, 0),
     new THREE.Vector3(0, -2.3, 0)
   );
