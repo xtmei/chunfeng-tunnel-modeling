@@ -186,11 +186,12 @@ body.compact-ui .label {
 body.compact-ui .scene-caption {
   left: 8px;
   right: 8px;
-  bottom: calc(112px + env(safe-area-inset-bottom, 0px));
-  padding: 10px 12px;
+  bottom: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.3;
+  background: rgba(5, 20, 40, 0.72);
 }
 
 body.compact-ui .control-bar {
@@ -234,6 +235,6 @@ body.compact-ui .switch-wrap {
     gap: 8px;
   }
   .scene-caption {
-    bottom: 96px; /* 避开移动端控制栏 */
+    bottom: 8px;
   }
 }
