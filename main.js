@@ -49,7 +49,13 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(COLORS.bgFog, 65, 250);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enabled = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.enablePan = false;
+controls.minDistance = 10;
+controls.maxDistance = 52;
+controls.minPolarAngle = Math.PI * 0.2;
+controls.maxPolarAngle = Math.PI * 0.55;
 
 const hemiLight = new THREE.HemisphereLight(0xf1f4f8, 0x4b5865, 1.02);
 const ambientLight = new THREE.AmbientLight(0xf8fbff, 0.24);
@@ -526,7 +532,7 @@ function buildHeroCutAssembly() {
 }
 
 function buildCrossSection() {
-  crossGroup.position.set(0, -18, 0);
+  crossGroup.position.set(0, 0, 0);
   const ringShape = new THREE.Shape();
   ringShape.absarc(0, 0, DIMENSIONS.outerDiameter / 2, 0, Math.PI * 2, false);
   const hole = new THREE.Path();
@@ -667,17 +673,6 @@ keyNames.forEach((name) => {
   labelMap.set(name, div);
 });
 
-const scenes = [
-  { title: 'Scene 1 · 整体走向：以更接近真实城区与洞体关系的方式展示单洞双层走向。', duration: 12 },
-  { title: `Scene 2 · 核心参数：外径 ${DIMENSIONS.outerDiameter}m、内径 ${DIMENSIONS.innerDiameter}m，衬砌与双层车道同步显现。`, duration: 12 },
-  { title: 'Scene 3 · 爆炸分解：衬砌分环、双层路面、附属设备与排烟系统展开演示。', duration: 12 },
-  { title: 'Scene 4 · 纵向剖面：门户明挖段与中部盾构段关系更加明确。', duration: 12 },
-  { title: 'Scene 5 · 全景总览：剖切镜头集中展示洞内照明与构件层次。', duration: 12 },
-];
-
-const totalDuration = scenes.reduce((a, s) => a + s.duration, 0);
-let timeline = 0;
-let autoPlay = true;
 let showLabels = true;
 let compactUI = false;
 let labelsTouched = false;
@@ -685,16 +680,45 @@ let labelsTouched = false;
 const compactVisibleLabels = new Set(['预制衬砌', '上层车道', '下层车道', '排烟通道']);
 
 const captionEl = document.querySelector('#scene-caption');
-const progress = document.querySelector('#progress');
-const playBtn = document.querySelector('#play');
-const prevBtn = document.querySelector('#prev');
-const nextBtn = document.querySelector('#next');
+const resetBtn = document.querySelector('#reset-view');
 const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
+const defaultCameraPosition = new THREE.Vector3(18, 10, 24);
+const defaultTarget = new THREE.Vector3(0, 0.6, 0);
+const tmp = new THREE.Vector3();
+const worldLabelPos = new THREE.Vector3();
+const localCameraPos = new THREE.Vector3();
+const labelRaycaster = new THREE.Raycaster();
+const labelOccluders = componentParts.map((part) => part.mesh);
 
-function setAutoPlay(nextState) {
-  autoPlay = nextState;
-  playBtn.textContent = autoPlay ? '暂停' : '播放';
+function applyInteractiveLayout() {
+  cityGroup.visible = false;
+  tunnelGroup.visible = false;
+  longitudinalGroup.visible = false;
+  heroCutGroup.visible = false;
+  crossGroup.visible = true;
+  crossGroup.rotation.set(0, -0.24, 0);
+  crossGroup.position.set(0, 0, 0);
+  componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
+
+  hemiLight.intensity = 0.95;
+  ambientLight.intensity = 0.22;
+  keyLight.intensity = 1.32;
+  fillLight.intensity = 0.56;
+  rimLight.intensity = 0.72;
+  underLight.intensity = 0.2;
+  crossLights.forEach((light) => {
+    light.intensity = 0.4;
+  });
+  heroLights.forEach((light) => {
+    light.intensity = 0;
+  });
+}
+
+function resetView() {
+  camera.position.copy(defaultCameraPosition);
+  controls.target.copy(defaultTarget);
+  controls.update();
 }
 
 function updateResponsiveFlags() {
@@ -705,6 +729,9 @@ function updateResponsiveFlags() {
     showLabels = !compactUI;
     labelToggle.checked = showLabels;
   }
+
+  controls.minDistance = compactUI ? 12 : 10;
+  controls.maxDistance = compactUI ? 48 : 52;
 }
 
 function syncViewportHeight() {
@@ -712,56 +739,36 @@ function syncViewportHeight() {
   document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
 }
 
-labelToggle.addEventListener('change', (e) => {
-  labelsTouched = true;
-  showLabels = e.target.checked;
-});
-playBtn.addEventListener('click', () => {
-  setAutoPlay(!autoPlay);
-});
-prevBtn.addEventListener('click', () => jumpScene(-1));
-nextBtn.addEventListener('click', () => jumpScene(1));
-progress.addEventListener('input', (e) => (timeline = Number(e.target.value) * totalDuration));
-
-function jumpScene(dir) {
-  let idx = getSceneIndex();
-  idx = (idx + dir + scenes.length) % scenes.length;
-  let t = 0;
-  for (let i = 0; i < idx; i++) t += scenes[i].duration;
-  timeline = t + 0.03;
-}
-
-function getSceneIndex() {
-  let sum = 0;
-  for (let i = 0; i < scenes.length; i++) {
-    sum += scenes[i].duration;
-    if (timeline <= sum) return i;
-  }
-  return scenes.length - 1;
-}
-
-function sceneProgress(index) {
-  let start = 0;
-  for (let i = 0; i < index; i++) start += scenes[i].duration;
-  return THREE.MathUtils.clamp((timeline - start) / scenes[index].duration, 0, 1);
-}
-
-function mixVec(a, b, t) {
-  return new THREE.Vector3().copy(a).lerp(b, t);
-}
-
-const tmp = new THREE.Vector3();
-function updateLabels(active) {
+function updateLabels() {
   labelMap.forEach((el) => (el.style.opacity = '0'));
-  if (!showLabels || !active) return;
+  if (!showLabels) return;
 
-  const xInset = compactUI ? 42 : 18;
-  const yInset = compactUI ? 34 : 16;
+  localCameraPos.copy(camera.position);
+  crossGroup.worldToLocal(localCameraPos);
+  const frontFacingLabels = localCameraPos.z > 8 && Math.abs(localCameraPos.x) < 24;
+  if (!frontFacingLabels) return;
+
+  const xInset = compactUI ? 44 : 18;
+  const yInset = compactUI ? 36 : 16;
 
   for (const part of componentParts) {
     if (!labelMap.has(part.name) || part.name === '侧墙') continue;
     if (compactUI && !compactVisibleLabels.has(part.name)) continue;
-    tmp.copy(part.labelPos).applyMatrix4(crossGroup.matrixWorld).project(camera);
+    worldLabelPos.copy(part.labelPos).applyMatrix4(crossGroup.matrixWorld);
+    const labelDistance = camera.position.distanceTo(worldLabelPos);
+    labelRaycaster.set(camera.position, worldLabelPos.clone().sub(camera.position).normalize());
+    const blockingHit = labelRaycaster.intersectObjects(labelOccluders, true).find((hit) => {
+      if (hit.distance >= labelDistance - 0.2) return false;
+      let current = hit.object;
+      while (current) {
+        if (current === part.mesh) return false;
+        current = current.parent;
+      }
+      return true;
+    });
+    if (blockingHit) continue;
+
+    tmp.copy(worldLabelPos).project(camera);
     const visible = tmp.z > -1 && tmp.z < 1;
     const x = THREE.MathUtils.clamp((tmp.x * 0.5 + 0.5) * renderer.domElement.clientWidth, xInset, renderer.domElement.clientWidth - xInset);
     const y = THREE.MathUtils.clamp((-tmp.y * 0.5 + 0.5) * renderer.domElement.clientHeight, yInset, renderer.domElement.clientHeight - yInset);
@@ -772,124 +779,43 @@ function updateLabels(active) {
   }
 }
 
-function animateScene() {
-  const index = getSceneIndex();
-  const p = sceneProgress(index);
-  captionEl.textContent = scenes[index].title;
-  const heroFocus = index === 4 ? 1 : 0;
-  const crossFocus = index === 1 || index === 2 ? 1 : 0;
-
-  hemiLight.intensity = THREE.MathUtils.lerp(1.02, 0.5, heroFocus);
-  ambientLight.intensity = THREE.MathUtils.lerp(0.24, 0.08, heroFocus);
-  keyLight.intensity = THREE.MathUtils.lerp(1.45, 0.82, heroFocus);
-  fillLight.intensity = THREE.MathUtils.lerp(0.6, 0.34, heroFocus);
-  rimLight.intensity = THREE.MathUtils.lerp(0.95, 0.42, heroFocus);
-  underLight.intensity = THREE.MathUtils.lerp(0.28, 0.12, heroFocus);
-  crossLights.forEach((light) => {
-    light.intensity = THREE.MathUtils.lerp(0.14, 0.42, crossFocus);
-  });
-  heroLights.forEach((light) => {
-    light.intensity = THREE.MathUtils.lerp(0.28, light.distance > 14 ? 0.95 : 0.68, heroFocus);
-  });
-
-  cityGroup.visible = index <= 1;
-  tunnelGroup.visible = index === 0 || index === 3;
-  crossGroup.visible = index >= 1 && index !== 4;
-  longitudinalGroup.visible = index === 3;
-  heroCutGroup.visible = index === 4;
-
-  if (index === 0) {
-    camera.position.copy(mixVec(new THREE.Vector3(46, 38, 64), new THREE.Vector3(22, -10, 36), p));
-    camera.lookAt(0, -12, 0);
-    setGroupOpacity(cityGroup, THREE.MathUtils.lerp(1, 0.14, p));
-  } else {
-    setGroupOpacity(cityGroup, 1);
-  }
-
-  if (index === 1) {
-    camera.position.set(21 * Math.cos(p * Math.PI * 0.5), -16.8 + 2.8 * Math.sin(p * Math.PI), 21 * Math.sin(p * Math.PI * 0.5));
-    camera.lookAt(0, -17, 0);
-    componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
-  }
-
-  if (index === 2) {
-    const pulse = Math.sin(p * Math.PI);
-    camera.position.set(18, -16.1, 18);
-    camera.lookAt(0, -17.5, 0);
-    componentParts.forEach((part) => {
-      part.mesh.position.copy(mixVec(part.basePos, part.explodePos, pulse * 0.95));
-    });
-  }
-
-  if (index === 3) {
-    camera.position.copy(mixVec(new THREE.Vector3(56, 22, 50), new THREE.Vector3(66, 12, 22), p));
-    camera.lookAt(0, -1, 0);
-    componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
-    crossGroup.position.set(-40 + 40 * (1 - p), -18, 0);
-  } else {
-    crossGroup.position.set(0, -18, 0);
-  }
-
-  if (index === 4) {
-    camera.position.copy(mixVec(new THREE.Vector3(21, -5.5, 17), new THREE.Vector3(12, -9.4, 9), p));
-    camera.lookAt(18.5, -16.2, -0.5);
-    componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
-  }
-
-  updateLabels(index >= 1 && index !== 3 && index !== 4);
-}
-
 function resize() {
   syncViewportHeight();
   updateResponsiveFlags();
-  const container = sceneWrap;
-  const w = container.clientWidth;
-  const h = container.clientHeight;
+  const w = sceneWrap.clientWidth;
+  const h = sceneWrap.clientHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 
+captionEl.textContent = `单洞双层横断面剖切示意 · 外径 ${DIMENSIONS.outerDiameter}m / 内径 ${DIMENSIONS.innerDiameter}m`;
+labelToggle.addEventListener('change', (e) => {
+  labelsTouched = true;
+  showLabels = e.target.checked;
+});
+resetBtn.addEventListener('click', resetView);
+
 window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+window.addEventListener('orientationchange', () => setTimeout(() => {
+  resize();
+  resetView();
+}, 200));
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', resize);
 }
-
-let pointerStartX = 0;
-let pointerStartY = 0;
-let activePointerId = null;
-sceneWrap.addEventListener('pointerdown', (e) => {
-  if (!compactUI) return;
-  activePointerId = e.pointerId;
-  pointerStartX = e.clientX;
-  pointerStartY = e.clientY;
-});
-sceneWrap.addEventListener('pointerup', (e) => {
-  if (!compactUI || activePointerId !== e.pointerId) return;
-  const dx = e.clientX - pointerStartX;
-  const dy = e.clientY - pointerStartY;
-  activePointerId = null;
-  if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-  setAutoPlay(false);
-  jumpScene(dx < 0 ? 1 : -1);
-});
-sceneWrap.addEventListener('pointercancel', () => {
-  activePointerId = null;
-});
 
 document.addEventListener('touchmove', (e) => {
   if (e.target.closest('#scene-wrap')) e.preventDefault();
 }, { passive: false });
 
+applyInteractiveLayout();
 resize();
+resetView();
 
-const clock = new THREE.Clock();
 function loop() {
-  const dt = clock.getDelta();
-  if (autoPlay) timeline = (timeline + dt) % totalDuration;
-  progress.value = (timeline / totalDuration).toFixed(4);
-  animateScene();
+  controls.update();
+  updateLabels();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }

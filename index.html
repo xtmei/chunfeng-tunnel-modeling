@@ -15,7 +15,7 @@
     <div id="app">
       <header class="hero-title">
         <h1>春风隧道“单洞双层”结构示意</h1>
-        <p>深圳城市快速路地下交通工程科普动画</p>
+        <p>深圳城市快速路地下交通工程交互模型</p>
       </header>
 
       <div id="scene-wrap">
@@ -25,19 +25,13 @@
       </div>
 
       <div class="control-bar">
+        <div class="control-hint">拖拽旋转，滚轮或双指缩放查看结构</div>
         <div class="top-controls">
-          <div class="btn-group">
-            <button id="prev" aria-label="切换到上一幕">上一幕</button>
-            <button id="play" aria-label="播放或暂停动画">暂停</button>
-            <button id="next" aria-label="切换到下一幕">下一幕</button>
-          </div>
+          <button id="reset-view" aria-label="恢复默认视角">复位视角</button>
           <label class="switch-wrap">
             <input type="checkbox" id="toggle-labels" checked aria-label="显示或隐藏结构标签" />
             <span>标签</span>
           </label>
-        </div>
-        <div class="progress-wrap">
-          <input id="progress" type="range" min="0" max="1" step="0.0001" value="0" aria-label="动画时间轴" />
         </div>
       </div>
     </div>
