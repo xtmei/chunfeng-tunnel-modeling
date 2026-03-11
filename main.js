@@ -60,7 +60,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(COLORS.bgFog, 65, 250);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.6, 260);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
@@ -112,6 +112,7 @@ root.add(cityGroup, tunnelGroup, crossGroup, longitudinalGroup, heroCutGroup);
 
 const crossLights = [];
 const heroLights = [];
+const sectionForegroundOverlays = [];
 
 function configureMesh(mesh, castShadow = true, receiveShadow = true) {
   mesh.castShadow = castShadow;
@@ -122,6 +123,7 @@ function configureMesh(mesh, castShadow = true, receiveShadow = true) {
 function mat(color, options = {}) {
   const {
     opacity = 1,
+    transparent = opacity < 1,
     roughness = 0.55,
     metalness = 0.08,
     emissive = 0x000000,
@@ -135,7 +137,7 @@ function mat(color, options = {}) {
   } = options;
   const material = new THREE.MeshStandardMaterial({
     color,
-    transparent: opacity < 1,
+    transparent,
     opacity,
     roughness,
     metalness,
@@ -621,19 +623,15 @@ function buildTunnelAlignment() {
   const upperCurve = new THREE.CatmullRomCurve3(points.map((point) => point.clone().add(new THREE.Vector3(0, 2.65, 0))));
   const lowerCurve = new THREE.CatmullRomCurve3(points.map((point) => point.clone().add(new THREE.Vector3(0, -3.05, 0))));
   const upperDeck = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 180, 0.28, 14, false), mat(COLORS.slab, {
-    opacity: 0.96,
     roughness: 0.9,
   })), false, true);
   const lowerDeck = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 180, 0.28, 14, false), mat(COLORS.slab, {
-    opacity: 0.96,
     roughness: 0.9,
   })), false, true);
   const upperSurface = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 180, 0.14, 10, false), mat(COLORS.lane, {
-    opacity: 0.98,
     roughness: 0.98,
   })), false, true);
   const lowerSurface = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 180, 0.14, 10, false), mat(COLORS.lane, {
-    opacity: 0.98,
     roughness: 0.98,
   })), false, true);
   tunnelGroup.add(upperDeck, lowerDeck, upperSurface, lowerSurface);
@@ -727,7 +725,6 @@ function buildHeroCutAssembly() {
 
   for (const z of [-8.7, 2.7]) {
     const wall = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 7.2, 0.55, 4, 0.06), mat(COLORS.sideWall, {
-      opacity: 0.94,
       roughness: 0.88,
     })), false, true);
     wall.position.set(18, -17.7, z);
@@ -735,7 +732,6 @@ function buildHeroCutAssembly() {
   }
 
   const utilityBand = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 1.1, 1.2, 4, 0.06), mat(0x6f8190, {
-    opacity: 0.95,
     roughness: 0.68,
   })), false, true);
   utilityBand.position.set(18, -13.3, 1.8);
@@ -747,7 +743,6 @@ function buildHeroCutAssembly() {
   }
 
   const smokeDuct = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 0.85, 2.6, 4, 0.08), mat(0xa7b5bd, {
-    opacity: 0.92,
     roughness: 0.56,
   })), false, true);
   smokeDuct.position.set(18, -11.8, -3);
@@ -762,14 +757,12 @@ function buildHeroCutAssembly() {
   }
 
   const cableGallery = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 16.1, 20), mat(0x4f86a7, {
-    opacity: 0.96,
     roughness: 0.5,
   })), false, true);
   cableGallery.rotation.z = Math.PI / 2;
   cableGallery.position.set(18, -22.1, 1.9);
   heroCutGroup.add(cableGallery);
   const conduit = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 16.15, 12), mat(COLORS.linework, {
-    opacity: 0.88,
     roughness: 0.45,
   })), false, true);
   conduit.rotation.z = Math.PI / 2;
@@ -891,6 +884,7 @@ function buildCrossSection() {
   );
   faultPart.mesh.rotation.z = -0.3;
   faultPart.mesh.renderOrder = 19;
+  sectionForegroundOverlays.push(faultPart.mesh);
   for (const y of [-10.5, -6.2, -1.8, 2.6, 7.1, 11.4]) {
     const faultStripe = configureMesh(new THREE.Mesh(
       new THREE.BoxGeometry(3.2, 0.12, 0.05),
@@ -913,6 +907,7 @@ function buildCrossSection() {
     boundary.position.set(0, y, 8.2);
     boundary.renderOrder = 17;
     crossGroup.add(boundary);
+    sectionForegroundOverlays.push(boundary);
   }
 
   const surfaceRoad = addPart(
@@ -961,7 +956,7 @@ function buildCrossSection() {
 
   const ringPart = addPart(
     new THREE.ExtrudeGeometry(ringShape, { depth: 12, bevelEnabled: false }),
-    mat(COLORS.ring, { opacity: 0.98, roughness: 0.9 }),
+    mat(COLORS.ring, { roughness: 0.9 }),
     '预制衬砌',
     new THREE.Vector3(0, 0, -6),
     new THREE.Vector3(0, 0, -11),
@@ -994,7 +989,7 @@ function buildCrossSection() {
 
   const upperLane = addPart(
     new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
-    mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
+    mat(COLORS.lane, { roughness: 0.98 }),
     '上层车道',
     new THREE.Vector3(0, 2.77, 0),
     new THREE.Vector3(0, 8.1, 0),
@@ -1002,9 +997,9 @@ function buildCrossSection() {
   );
   const lowerLane = addPart(
     new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
-    mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
+    mat(COLORS.lane, { roughness: 0.98 }),
     '下层车道',
-    new THREE.Vector3(0, -3.16, 0),
+    new THREE.Vector3(0, -3.08, 0),
     new THREE.Vector3(0, -8.4, 0),
     new THREE.Vector3(0, -2.3, 0)
   );
@@ -1023,7 +1018,7 @@ function buildCrossSection() {
 
   const rightWall = addPart(
     new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
-    mat(COLORS.sideWall, { opacity: 0.94, roughness: 0.88 }),
+    mat(COLORS.sideWall, { roughness: 0.88 }),
     '侧墙',
     new THREE.Vector3(5.7, -0.2, 0),
     new THREE.Vector3(8.5, -0.2, 0),
@@ -1031,7 +1026,7 @@ function buildCrossSection() {
   );
   const leftWall = addPart(
     new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
-    mat(COLORS.sideWall, { opacity: 0.94, roughness: 0.88 }),
+    mat(COLORS.sideWall, { roughness: 0.88 }),
     '侧墙',
     new THREE.Vector3(-5.7, -0.2, 0),
     new THREE.Vector3(-8.5, -0.2, 0)
@@ -1046,7 +1041,7 @@ function buildCrossSection() {
 
   const utilityPart = addPart(
     new RoundedBoxGeometry(1.2, 1.1, 12, 4, 0.05),
-    mat(COLORS.utility, { opacity: 0.94, roughness: 0.72 }),
+    mat(COLORS.utility, { roughness: 0.72 }),
     '设备带',
     new THREE.Vector3(-4.8, 4.2, 0),
     new THREE.Vector3(-8.1, 6.3, 0),
@@ -1060,7 +1055,7 @@ function buildCrossSection() {
 
   const cablePart = addPart(
     new THREE.CylinderGeometry(0.34, 0.34, 12, 20),
-    mat(0x5d91b0, { opacity: 0.96, roughness: 0.5 }),
+    mat(0x5d91b0, { roughness: 0.5 }),
     '电缆管廊',
     new THREE.Vector3(-5, -4.6, 0),
     new THREE.Vector3(-8.2, -6.8, 0),
@@ -1079,7 +1074,7 @@ function buildCrossSection() {
 
   const smokePart = addPart(
     new RoundedBoxGeometry(2.6, 0.85, 12, 4, 0.08),
-    mat(0xb2c1c9, { opacity: 0.92, roughness: 0.62 }),
+    mat(0xb2c1c9, { roughness: 0.62 }),
     '排烟通道',
     new THREE.Vector3(0, 5.7, 0),
     new THREE.Vector3(0, 10.2, 0),
@@ -1116,15 +1111,18 @@ let compactUI = false;
 let labelsTouched = false;
 
 const compactVisibleLabels = new Set(['春风路地表', '冲洪积层', '硬岩层', '上层车道', '下层车道']);
+const contextualSectionParts = new Set(['春风路地表', '人工填土层', '冲洪积层', '强风化层', '残积层', '断层破碎带', '硬岩层', '地下水位']);
 
 const captionEl = document.querySelector('#scene-caption');
 const resetBtn = document.querySelector('#reset-view');
 const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
-const desktopCameraPosition = new THREE.Vector3(19, 12, 28);
-const desktopTarget = new THREE.Vector3(0, 2.8, 0);
-const mobileCameraPosition = new THREE.Vector3(31, 18, 47);
-const mobileTarget = new THREE.Vector3(0, 4.6, 0);
+const desktopCameraPosition = new THREE.Vector3(2.4, 0.9, 22);
+const desktopTarget = new THREE.Vector3(0, 0, 0);
+const mobileCameraPosition = new THREE.Vector3(1.9, 0.7, 23);
+const mobileTarget = new THREE.Vector3(0, 0, 0);
+const desktopCrossRotation = new THREE.Euler(0, 0, 0);
+const mobileCrossRotation = new THREE.Euler(0, 0, 0);
 const tmp = new THREE.Vector3();
 const worldLabelPos = new THREE.Vector3();
 const localCameraPos = new THREE.Vector3();
@@ -1137,9 +1135,17 @@ function applyInteractiveLayout() {
   longitudinalGroup.visible = false;
   heroCutGroup.visible = false;
   crossGroup.visible = true;
-  crossGroup.rotation.set(0, -0.18, 0);
+  const crossRotation = compactUI ? mobileCrossRotation : desktopCrossRotation;
+  crossGroup.rotation.copy(crossRotation);
   crossGroup.position.set(0, 0, 0);
-  componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
+  componentParts.forEach((part) => {
+    part.mesh.position.copy(part.basePos);
+    part.mesh.visible = !contextualSectionParts.has(part.name);
+  });
+  // Keep geological overlays out of the default sightline so both road decks read clearly.
+  sectionForegroundOverlays.forEach((overlay) => {
+    overlay.visible = false;
+  });
 
   hemiLight.intensity = 0.95;
   ambientLight.intensity = 0.22;
@@ -1164,6 +1170,7 @@ function resetView() {
 }
 
 function updateResponsiveFlags() {
+  const wasCompactUI = compactUI;
   compactUI = window.matchMedia('(max-width: 680px), (max-height: 760px) and (pointer: coarse)').matches || window.innerWidth < 680;
   document.body.classList.toggle('compact-ui', compactUI);
 
@@ -1173,7 +1180,12 @@ function updateResponsiveFlags() {
   }
 
   controls.minDistance = compactUI ? 10 : 10;
-  controls.maxDistance = compactUI ? 78 : 52;
+  controls.maxDistance = compactUI ? 82 : 52;
+
+  if (wasCompactUI !== compactUI) {
+    applyInteractiveLayout();
+    resetView();
+  }
 }
 
 function syncViewportHeight() {
