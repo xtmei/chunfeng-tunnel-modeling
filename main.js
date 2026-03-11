@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const DIMENSIONS = {
   outerDiameter: 15.2,
@@ -9,39 +10,76 @@ const DIMENSIONS = {
 };
 
 const COLORS = {
-  bgFog: 0x0b1f3b,
-  ring: 0x9fb4cc,
-  slab: 0xd4deea,
-  lane: 0x2f4258,
-  sideWall: 0x8ca2b8,
-  utility: 0x3eb7ea,
-  accent: 0xff9a3d,
-  portal: 0x90a6c0,
+  bgFog: 0x445464,
+  ring: 0xb9bcb9,
+  slab: 0xc7cacc,
+  lane: 0x30353b,
+  sideWall: 0xb2b8bd,
+  utility: 0x7d8a94,
+  accent: 0xd48440,
+  portal: 0xbabec2,
+  soil: 0x846f58,
+  vegetation: 0x5d7359,
+  road: 0x353a40,
+  marking: 0xf2efe1,
+  steel: 0x91979d,
+  glass: 0xc5d7e5,
+  lightWarm: 0xffe5bc,
+  lightCool: 0xdbe9f6,
+  shadow: 0x19212a,
+  linework: 0x7a8590,
 };
 
 const canvas = document.querySelector('#stage');
-const renderer = new THREE.WebGLRenderer({ 
-  canvas, 
-  antialias: true, 
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
   alpha: true,
-  powerPreference: 'high-performance', // 提示移动端使用高性能 GPU
-  preserveDrawingBuffer: true // 提高部分手机端浏览器的截图和显示兼容性
+  powerPreference: 'high-performance',
+  preserveDrawingBuffer: true,
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(COLORS.bgFog, 50, 220);
+scene.fog = new THREE.Fog(COLORS.bgFog, 65, 250);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enabled = false;
 
-scene.add(new THREE.AmbientLight(0xb9dcff, 0.65));
-const keyLight = new THREE.DirectionalLight(0xe4f0ff, 0.9);
-keyLight.position.set(20, 25, 20);
-scene.add(keyLight);
-const rimLight = new THREE.PointLight(0x58d2ff, 1.2, 180);
-rimLight.position.set(-20, 10, -20);
+const hemiLight = new THREE.HemisphereLight(0xf1f4f8, 0x4b5865, 1.02);
+const ambientLight = new THREE.AmbientLight(0xf8fbff, 0.24);
+scene.add(hemiLight, ambientLight);
+
+const keyLight = new THREE.DirectionalLight(0xfff1d8, 1.45);
+keyLight.position.set(36, 48, 24);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -90;
+keyLight.shadow.camera.right = 90;
+keyLight.shadow.camera.top = 90;
+keyLight.shadow.camera.bottom = -90;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 180;
+keyLight.shadow.bias = -0.00018;
+keyLight.target.position.set(0, -12, 0);
+scene.add(keyLight, keyLight.target);
+
+const fillLight = new THREE.DirectionalLight(0xd9e8f5, 0.6);
+fillLight.position.set(-30, 22, 26);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(COLORS.lightCool, 0.95, 210);
+rimLight.position.set(-26, 12, -26);
 scene.add(rimLight);
+
+const underLight = new THREE.PointLight(0x7ba0c2, 0.28, 180);
+underLight.position.set(0, -26, 10);
+scene.add(underLight);
 
 const root = new THREE.Group();
 scene.add(root);
@@ -53,25 +91,200 @@ const longitudinalGroup = new THREE.Group();
 const heroCutGroup = new THREE.Group();
 root.add(cityGroup, tunnelGroup, crossGroup, longitudinalGroup, heroCutGroup);
 
-function mat(color, opacity = 1, rough = 0.45) {
-  return new THREE.MeshStandardMaterial({ color, transparent: opacity < 1, opacity, roughness: rough, metalness: 0.15 });
+const crossLights = [];
+const heroLights = [];
+
+function configureMesh(mesh, castShadow = true, receiveShadow = true) {
+  mesh.castShadow = castShadow;
+  mesh.receiveShadow = receiveShadow;
+  return mesh;
+}
+
+function mat(color, options = {}) {
+  const {
+    opacity = 1,
+    roughness = 0.55,
+    metalness = 0.08,
+    emissive = 0x000000,
+    emissiveIntensity = 0,
+    side = THREE.FrontSide,
+  } = options;
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    transparent: opacity < 1,
+    opacity,
+    roughness,
+    metalness,
+    emissive,
+    emissiveIntensity,
+    side,
+  });
+  material.userData.baseOpacity = opacity;
+  return material;
+}
+
+function setGroupOpacity(group, factor) {
+  group.traverse((obj) => {
+    if (!obj.material) return;
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    materials.forEach((material) => {
+      const baseOpacity = material.userData.baseOpacity ?? 1;
+      material.opacity = baseOpacity * factor;
+      material.transparent = material.opacity < 0.999;
+    });
+  });
+}
+
+function circlePoints(radius, z) {
+  return new THREE.EllipseCurve(0, 0, radius, radius, 0, Math.PI * 2).getPoints(72).map((p) => new THREE.Vector3(p.x, p.y, z));
+}
+
+function addLaneStripMarks(parent, y = 0.18, width = 10.8, length = 12) {
+  const edgeWidth = 0.16;
+  const dashLength = 1.25;
+  const dashCount = 5;
+  const edgeLeft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(edgeWidth, 0.025, length + 0.1), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+  edgeLeft.position.set(-(width / 2) + 0.38, y, 0);
+  const edgeRight = edgeLeft.clone();
+  edgeRight.position.x *= -1;
+  parent.add(edgeLeft, edgeRight);
+
+  for (let i = 0; i < dashCount; i++) {
+    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, dashLength), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    dash.position.set(0, y, -4.6 + i * 2.3);
+    parent.add(dash);
+  }
+}
+
+function addHeroLaneMarks(parent, y = 0.12, width = 10.8, length = 16.2) {
+  const edgeWidth = 0.16;
+  const dashLength = 1.45;
+  const dashCount = 5;
+  const edgeNear = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(length + 0.1, 0.025, edgeWidth), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+  edgeNear.position.set(0, y, -(width / 2) + 0.38);
+  const edgeFar = edgeNear.clone();
+  edgeFar.position.z *= -1;
+  parent.add(edgeNear, edgeFar);
+
+  for (let i = 0; i < dashCount; i++) {
+    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(dashLength, 0.025, 0.18), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    dash.position.set(-5.6 + i * 2.8, y, 0);
+    parent.add(dash);
+  }
+}
+
+function addBarrierRails(parent, xOffset, length = 12) {
+  const barrier = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(0.28, 0.5, length, 4, 0.05), mat(COLORS.steel, { roughness: 0.66, metalness: 0.14 })), false, true);
+  barrier.position.set(xOffset, 0.32, 0);
+  const rail = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, length + 0.1), mat(COLORS.linework, { opacity: 0.88, roughness: 0.48, metalness: 0.25 })), false, true);
+  rail.position.set(xOffset - Math.sign(xOffset) * 0.06, 0.72, 0);
+  parent.add(barrier, rail);
+}
+
+function addRingJoints(part) {
+  const lineMaterial = new THREE.LineBasicMaterial({ color: COLORS.linework, transparent: true, opacity: 0.78 });
+  [0.04, 11.96].forEach((z) => {
+    const outerLoop = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePoints(DIMENSIONS.outerDiameter / 2, z)), lineMaterial);
+    const innerLoop = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePoints(DIMENSIONS.innerDiameter / 2, z)), lineMaterial);
+    part.mesh.add(outerLoop, innerLoop);
+    [-2.42, -1.42, -0.35, 0.65, 1.68, 2.55].forEach((angle) => {
+      const seam = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(Math.cos(angle) * (DIMENSIONS.innerDiameter / 2), Math.sin(angle) * (DIMENSIONS.innerDiameter / 2), z),
+          new THREE.Vector3(Math.cos(angle) * (DIMENSIONS.outerDiameter / 2), Math.sin(angle) * (DIMENSIONS.outerDiameter / 2), z),
+        ]),
+        lineMaterial
+      );
+      part.mesh.add(seam);
+    });
+  });
+
+  const seamRadius = (DIMENSIONS.outerDiameter + DIMENSIONS.innerDiameter) * 0.25;
+  [-2.42, -1.42, -0.35, 0.65, 1.68, 2.55].forEach((angle) => {
+    const seam = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 12.04), mat(COLORS.linework, { opacity: 0.65, roughness: 0.95 })), false, true);
+    seam.position.set(Math.cos(angle) * seamRadius, Math.sin(angle) * seamRadius, 6);
+    seam.rotation.z = angle;
+    part.mesh.add(seam);
+  });
+}
+
+function addCrossLights() {
+  for (const z of [-4.2, 0, 4.2]) {
+    const fixture = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(1.35, 0.16, 0.34, 4, 0.04), mat(0xf8f0db, {
+      roughness: 0.22,
+      metalness: 0.02,
+      emissive: COLORS.lightWarm,
+      emissiveIntensity: 0.9,
+    })), false, false);
+    fixture.position.set(0, 6.1, z);
+    crossGroup.add(fixture);
+
+    const lamp = new THREE.PointLight(COLORS.lightWarm, 0.28, 16);
+    lamp.position.set(0, 5.7, z);
+    crossLights.push(lamp);
+    crossGroup.add(lamp);
+  }
 }
 
 function buildCity() {
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(180, 180), mat(0x122b4f, 0.75));
+  const ground = configureMesh(new THREE.Mesh(new THREE.PlaneGeometry(220, 220), mat(0xd8dde1, { roughness: 1 })), false, true);
   ground.rotation.x = -Math.PI / 2;
   cityGroup.add(ground);
 
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(120, 20), mat(0x1f3552, 0.92));
-  road.rotation.x = -Math.PI / 2;
-  road.position.y = 0.03;
-  cityGroup.add(road);
+  const boulevard = configureMesh(new THREE.Mesh(new THREE.PlaneGeometry(165, 24), mat(COLORS.road, { roughness: 0.97 })), false, true);
+  boulevard.rotation.x = -Math.PI / 2;
+  boulevard.position.y = 0.02;
+  cityGroup.add(boulevard);
 
-  for (let i = 0; i < 26; i++) {
-    const h = 6 + Math.random() * 22;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(6, h, 6), mat(0x49698f, 0.5));
-    b.position.set((Math.random() - 0.5) * 145, h / 2, (Math.random() - 0.5) * 145);
-    cityGroup.add(b);
+  const median = configureMesh(new THREE.Mesh(new THREE.PlaneGeometry(160, 2.4), mat(COLORS.vegetation, { roughness: 1 })), false, true);
+  median.rotation.x = -Math.PI / 2;
+  median.position.y = 0.03;
+  cityGroup.add(median);
+
+  for (const z of [-38, 38]) {
+    const road = configureMesh(new THREE.Mesh(new THREE.PlaneGeometry(158, 10), mat(0x434950, { roughness: 0.97 })), false, true);
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(0, 0.018, z);
+    cityGroup.add(road);
+  }
+
+  const tunnelTrace = configureMesh(new THREE.Mesh(new THREE.PlaneGeometry(170, 6.4), mat(0x89a4b4, { opacity: 0.15, roughness: 1 })), false, true);
+  tunnelTrace.rotation.x = -Math.PI / 2;
+  tunnelTrace.position.y = 0.015;
+  cityGroup.add(tunnelTrace);
+
+  for (let i = -7; i <= 7; i++) {
+    if (i === 0) continue;
+    const stripe = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.025, 0.2), mat(COLORS.marking, { roughness: 0.72 })), false, true);
+    stripe.position.set(i * 10, 0.035, 0);
+    cityGroup.add(stripe);
+  }
+
+  for (let row = 0; row < 2; row++) {
+    for (let i = 0; i < 8; i++) {
+      const x = -72 + i * 20 + row * 4;
+      const width = 10 + ((i + row) % 2) * 2.4;
+      const depth = 12 + (i % 3) * 3;
+      const height = 15 + ((i * 3 + row * 5) % 4) * 6 + row * 4;
+      for (const side of [-1, 1]) {
+        const z = side * (29 + row * 19 + (i % 2) * 2.6);
+        const podium = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(width + 3.5, 2.8, depth + 3.5, 4, 0.25), mat(0xc7ccd1, { opacity: 0.96, roughness: 0.9 })));
+        podium.position.set(x, 1.4, z);
+        cityGroup.add(podium);
+
+        const building = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(width, height, depth, 5, 0.38), mat(0x9aa7b2, { opacity: 0.9, roughness: 0.76 })));
+        building.position.set(x, height / 2 + 2.8, z);
+        cityGroup.add(building);
+
+        const cap = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(width * 0.45, 1.2, depth * 0.35, 3, 0.14), mat(COLORS.glass, {
+          opacity: 0.95,
+          roughness: 0.18,
+          metalness: 0.08,
+        })), false, true);
+        cap.position.set(x, height + 3.6, z);
+        cityGroup.add(cap);
+      }
+    }
   }
 }
 
@@ -81,25 +294,80 @@ function centerlinePoint(t) {
   return new THREE.Vector3(x, y, 0);
 }
 
+function addTunnelRings(curve, segments) {
+  const ringGeometry = new THREE.TorusGeometry(DIMENSIONS.outerDiameter / 2, 0.08, 10, 64);
+  const ringMaterial = mat(COLORS.linework, { opacity: 0.54, roughness: 0.95 });
+  const frames = curve.computeFrenetFrames(segments, false);
+
+  for (let i = 7; i < segments - 6; i += 7) {
+    const ring = configureMesh(new THREE.Mesh(ringGeometry, ringMaterial), false, true);
+    ring.position.copy(curve.getPointAt(i / segments));
+    const basis = new THREE.Matrix4().makeBasis(frames.normals[i], frames.binormals[i], curve.getTangentAt(i / segments).normalize());
+    ring.quaternion.setFromRotationMatrix(basis);
+    tunnelGroup.add(ring);
+  }
+}
+
 function buildTunnelAlignment() {
   const points = [];
-  for (let i = 0; i <= 120; i++) points.push(centerlinePoint(i / 120));
+  const segments = 120;
+  for (let i = 0; i <= segments; i++) points.push(centerlinePoint(i / segments));
   const curve = new THREE.CatmullRomCurve3(points);
-  const outer = new THREE.Mesh(new THREE.TubeGeometry(curve, 200, DIMENSIONS.outerDiameter / 2, 52, false), mat(0xa7b8ca, 0.22));
+
+  const excav = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(curve, 220, DIMENSIONS.excavDiameter / 2, 44, false), mat(COLORS.soil, {
+    opacity: 0.08,
+    roughness: 1,
+    side: THREE.BackSide,
+  })), false, false);
+  tunnelGroup.add(excav);
+
+  const outer = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(curve, 260, DIMENSIONS.outerDiameter / 2, 64, false), mat(COLORS.ring, {
+    opacity: 0.4,
+    roughness: 0.88,
+  })), false, true);
   tunnelGroup.add(outer);
 
-  const upper = new THREE.Mesh(new THREE.TubeGeometry(curve, 180, 2.2, 22, false), mat(0x314863, 0.8));
-  upper.position.y += 1.65;
-  const lower = upper.clone();
-  lower.position.y -= 3.25;
-  tunnelGroup.add(upper, lower);
+  const innerGlow = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(curve, 220, DIMENSIONS.innerDiameter / 2, 52, false), mat(0xf6f8fa, {
+    opacity: 0.06,
+    roughness: 0.18,
+    side: THREE.BackSide,
+  })), false, false);
+  tunnelGroup.add(innerGlow);
 
-  const pMat = mat(COLORS.portal, 0.33);
-  const p1 = new THREE.Mesh(new THREE.BoxGeometry(22, 12, 18), pMat);
+  addTunnelRings(curve, segments);
+
+  const upperCurve = new THREE.CatmullRomCurve3(points.map((point) => point.clone().add(new THREE.Vector3(0, 2.65, 0))));
+  const lowerCurve = new THREE.CatmullRomCurve3(points.map((point) => point.clone().add(new THREE.Vector3(0, -3.05, 0))));
+  const upperDeck = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 180, 0.28, 14, false), mat(COLORS.slab, {
+    opacity: 0.96,
+    roughness: 0.9,
+  })), false, true);
+  const lowerDeck = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 180, 0.28, 14, false), mat(COLORS.slab, {
+    opacity: 0.96,
+    roughness: 0.9,
+  })), false, true);
+  const upperSurface = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 180, 0.14, 10, false), mat(COLORS.lane, {
+    opacity: 0.98,
+    roughness: 0.98,
+  })), false, true);
+  const lowerSurface = configureMesh(new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 180, 0.14, 10, false), mat(COLORS.lane, {
+    opacity: 0.98,
+    roughness: 0.98,
+  })), false, true);
+  tunnelGroup.add(upperDeck, lowerDeck, upperSurface, lowerSurface);
+
+  const pMat = mat(COLORS.portal, { opacity: 0.45, roughness: 0.82 });
+  const p1 = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(22, 12, 18, 4, 0.4), pMat), false, true);
   p1.position.copy(centerlinePoint(0.03)).add(new THREE.Vector3(0, 4.6, 0));
   const p2 = p1.clone();
   p2.position.copy(centerlinePoint(0.97)).add(new THREE.Vector3(0, 4.6, 0));
   longitudinalGroup.add(p1, p2);
+
+  for (const portal of [p1, p2]) {
+    const approach = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(18, 0.28, 8), mat(COLORS.road, { roughness: 0.97 })), false, true);
+    approach.position.copy(portal.position).add(new THREE.Vector3(0, -5.85, 0));
+    longitudinalGroup.add(approach);
+  }
 
   const profilePts = [];
   for (let i = 0; i <= 100; i++) {
@@ -109,44 +377,279 @@ function buildTunnelAlignment() {
   }
   const profile = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(profilePts),
-    new THREE.LineBasicMaterial({ color: 0x91d2ff })
+    new THREE.LineBasicMaterial({ color: 0x8ba3b8, transparent: true, opacity: 0.85 })
   );
   longitudinalGroup.add(profile);
 }
 
 const componentParts = [];
-function addPart(geo, material, name, basePos, explodePos, labelPos = null) {
-  const mesh = new THREE.Mesh(geo, material);
+function addPart(geometry, material, name, basePos, explodePos, labelPos = null) {
+  const mesh = configureMesh(new THREE.Mesh(geometry, material));
   mesh.position.copy(basePos);
   crossGroup.add(mesh);
-  componentParts.push({ mesh, basePos: basePos.clone(), explodePos: explodePos.clone(), name, labelPos: labelPos || explodePos.clone() });
+  const part = {
+    mesh,
+    basePos: basePos.clone(),
+    explodePos: explodePos.clone(),
+    name,
+    labelPos: labelPos || explodePos.clone(),
+  };
+  componentParts.push(part);
+  return part;
+}
+
+function buildHeroCutAssembly() {
+  const heroShell = configureMesh(new THREE.Mesh(
+    new THREE.CylinderGeometry(DIMENSIONS.outerDiameter / 2, DIMENSIONS.outerDiameter / 2, 24, 96, 1, true, -0.28 * Math.PI, 1.62 * Math.PI),
+    mat(0xa2acb6, { opacity: 0.28, roughness: 0.84, side: THREE.DoubleSide })
+  ), false, true);
+  heroShell.rotation.z = Math.PI / 2;
+  heroShell.position.set(18, -17.5, -3);
+  heroCutGroup.add(heroShell);
+
+  const heroRingSeams = configureMesh(new THREE.Mesh(new THREE.TorusGeometry(DIMENSIONS.innerDiameter / 2, 0.06, 8, 56), mat(COLORS.linework, {
+    opacity: 0.66,
+    roughness: 0.94,
+  })), false, false);
+  heroRingSeams.rotation.y = Math.PI / 2;
+  heroRingSeams.position.set(18, -17.5, -3);
+  heroCutGroup.add(heroRingSeams);
+
+  const addHeroDeck = (yOffset) => {
+    const slab = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.4, 0.45, 13.1, 4, 0.08), mat(COLORS.slab, {
+      roughness: 0.92,
+    })), false, true);
+    slab.position.set(18, -17.5 + yOffset - 0.2, -3);
+    heroCutGroup.add(slab);
+
+    const lane = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.2, 0.18, 10.8, 4, 0.05), mat(COLORS.lane, {
+      roughness: 0.98,
+    })), false, true);
+    lane.position.set(18, -17.5 + yOffset, -3);
+    heroCutGroup.add(lane);
+
+    addHeroLaneMarks(lane);
+
+    for (const zOffset of [-4.95, 4.95]) {
+      const barrier = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.2, 0.48, 0.28, 4, 0.05), mat(COLORS.steel, {
+        roughness: 0.64,
+        metalness: 0.14,
+      })), false, true);
+      barrier.position.set(18, -17.5 + yOffset + 0.26, -3 + zOffset);
+      heroCutGroup.add(barrier);
+    }
+  };
+
+  addHeroDeck(2.7);
+  addHeroDeck(-3.1);
+
+  for (const z of [-8.7, 2.7]) {
+    const wall = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 7.2, 0.55, 4, 0.06), mat(COLORS.sideWall, {
+      opacity: 0.94,
+      roughness: 0.88,
+    })), false, true);
+    wall.position.set(18, -17.7, z);
+    heroCutGroup.add(wall);
+  }
+
+  const utilityBand = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 1.1, 1.2, 4, 0.06), mat(0x6f8190, {
+    opacity: 0.95,
+    roughness: 0.68,
+  })), false, true);
+  utilityBand.position.set(18, -13.3, 1.8);
+  heroCutGroup.add(utilityBand);
+  for (const x of [12.6, 16.5, 20.4, 24.3]) {
+    const bracket = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.35, 0.16), mat(COLORS.steel, { roughness: 0.62 })), false, true);
+    bracket.position.set(x, -13.35, 0.96);
+    heroCutGroup.add(bracket);
+  }
+
+  const smokeDuct = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(16.1, 0.85, 2.6, 4, 0.08), mat(0xa7b5bd, {
+    opacity: 0.92,
+    roughness: 0.56,
+  })), false, true);
+  smokeDuct.position.set(18, -11.8, -3);
+  heroCutGroup.add(smokeDuct);
+  for (const x of [12.7, 15.7, 18.7, 21.7, 24.1]) {
+    const slot = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.16), mat(COLORS.linework, {
+      opacity: 0.82,
+      roughness: 0.8,
+    })), false, true);
+    slot.position.set(x, -11.47, -3);
+    heroCutGroup.add(slot);
+  }
+
+  const cableGallery = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 16.1, 20), mat(0x4f86a7, {
+    opacity: 0.96,
+    roughness: 0.5,
+  })), false, true);
+  cableGallery.rotation.z = Math.PI / 2;
+  cableGallery.position.set(18, -22.1, 1.9);
+  heroCutGroup.add(cableGallery);
+  const conduit = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 16.15, 12), mat(COLORS.linework, {
+    opacity: 0.88,
+    roughness: 0.45,
+  })), false, true);
+  conduit.rotation.z = Math.PI / 2;
+  conduit.position.set(18, -22.38, 1.9);
+  heroCutGroup.add(conduit);
+
+  for (const x of [12.4, 16.4, 20.4, 24.4]) {
+    const fixture = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(1.55, 0.18, 0.38, 3, 0.04), mat(0xf8f0db, {
+      roughness: 0.18,
+      emissive: COLORS.lightWarm,
+      emissiveIntensity: 1.45,
+    })), false, false);
+    fixture.position.set(x, -11.4, -3);
+    heroCutGroup.add(fixture);
+
+    const light = new THREE.PointLight(COLORS.lightWarm, 0.72, 18);
+    light.position.set(x, -11.9, -2.4);
+    heroLights.push(light);
+    heroCutGroup.add(light);
+  }
+
+  for (const x of [13.8, 18, 22.2]) {
+    const fixture = configureMesh(new THREE.Mesh(new RoundedBoxGeometry(1.25, 0.14, 0.28, 3, 0.03), mat(0xf3ead5, {
+      roughness: 0.2,
+      emissive: COLORS.lightWarm,
+      emissiveIntensity: 1.18,
+    })), false, false);
+    fixture.position.set(x, -15.15, -1.4);
+    heroCutGroup.add(fixture);
+
+    const light = new THREE.PointLight(COLORS.lightWarm, 0.5, 12);
+    light.position.set(x, -15.45, -0.9);
+    heroLights.push(light);
+    heroCutGroup.add(light);
+  }
 }
 
 function buildCrossSection() {
   crossGroup.position.set(0, -18, 0);
-  const ring = new THREE.Shape();
-  ring.absarc(0, 0, DIMENSIONS.outerDiameter / 2, 0, Math.PI * 2, false);
+  const ringShape = new THREE.Shape();
+  ringShape.absarc(0, 0, DIMENSIONS.outerDiameter / 2, 0, Math.PI * 2, false);
   const hole = new THREE.Path();
   hole.absarc(0, 0, DIMENSIONS.innerDiameter / 2, 0, Math.PI * 2, true);
-  ring.holes.push(hole);
+  ringShape.holes.push(hole);
 
-  addPart(new THREE.ExtrudeGeometry(ring, { depth: 12, bevelEnabled: false }), mat(COLORS.ring, 0.95), '预制衬砌', new THREE.Vector3(0, 0, -6), new THREE.Vector3(0, 0, -11), new THREE.Vector3(0, 8.1, 0));
-  addPart(new THREE.BoxGeometry(13.1, 0.45, 12), mat(COLORS.slab), '车道板', new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 4.2, 0), new THREE.Vector3(0, 1.2, 0));
-  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '上层车道', new THREE.Vector3(0, 2.7, 0), new THREE.Vector3(0, 8.1, 0), new THREE.Vector3(0, 3.7, 0));
-  addPart(new THREE.BoxGeometry(10.8, 0.3, 12), mat(COLORS.lane, 0.96), '下层车道', new THREE.Vector3(0, -3.1, 0), new THREE.Vector3(0, -8.4, 0), new THREE.Vector3(0, -2.3, 0));
-  addPart(new THREE.BoxGeometry(0.55, 7.2, 12), mat(COLORS.sideWall, 0.9), '侧墙', new THREE.Vector3(5.7, -0.2, 0), new THREE.Vector3(8.5, -0.2, 0), new THREE.Vector3(6.7, -0.3, 0));
-  addPart(new THREE.BoxGeometry(0.55, 7.2, 12), mat(COLORS.sideWall, 0.9), '侧墙', new THREE.Vector3(-5.7, -0.2, 0), new THREE.Vector3(-8.5, -0.2, 0));
-  addPart(new THREE.BoxGeometry(1.2, 1.1, 12), mat(COLORS.utility, 0.88), '设备带', new THREE.Vector3(-4.8, 4.2, 0), new THREE.Vector3(-8.1, 6.3, 0), new THREE.Vector3(-6.5, 5.2, 0));
-  addPart(new THREE.CylinderGeometry(0.34, 0.34, 12, 16), mat(0x47b4ff, 0.9), '电缆管廊', new THREE.Vector3(-5, -4.6, 0), new THREE.Vector3(-8.2, -6.8, 0), new THREE.Vector3(-6.9, -5.5, 0));
-  addPart(new THREE.BoxGeometry(2.6, 0.85, 12), mat(0x6fd5f8, 0.65), '排烟通道', new THREE.Vector3(0, 5.7, 0), new THREE.Vector3(0, 10.2, 0), new THREE.Vector3(0, 7.2, 0));
-
-  const heroCut = new THREE.Mesh(
-    new THREE.CylinderGeometry(DIMENSIONS.outerDiameter / 2, DIMENSIONS.outerDiameter / 2, 24, 90, 1, true, -0.28 * Math.PI, 1.62 * Math.PI),
-    mat(0x95aeca, 0.34)
+  const ringPart = addPart(
+    new THREE.ExtrudeGeometry(ringShape, { depth: 12, bevelEnabled: false }),
+    mat(COLORS.ring, { opacity: 0.98, roughness: 0.9 }),
+    '预制衬砌',
+    new THREE.Vector3(0, 0, -6),
+    new THREE.Vector3(0, 0, -11),
+    new THREE.Vector3(0, 8.1, 0)
   );
-  heroCut.rotation.z = Math.PI / 2;
-  heroCut.position.set(18, -17.5, -3);
-  heroCutGroup.add(heroCut);
+  addRingJoints(ringPart);
+
+  const slabPart = addPart(
+    new RoundedBoxGeometry(13.1, 0.48, 12, 4, 0.08),
+    mat(COLORS.slab, { roughness: 0.92 }),
+    '车道板',
+    new THREE.Vector3(0, -0.2, 0),
+    new THREE.Vector3(0, 4.2, 0),
+    new THREE.Vector3(0, 1.2, 0)
+  );
+  for (const x of [-4.8, 4.8]) {
+    const gutter = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.1, 12.1), mat(0xa4aaaf, { roughness: 0.92 })), false, true);
+    gutter.position.set(x, -0.22, 0);
+    slabPart.mesh.add(gutter);
+  }
+
+  const upperLane = addPart(
+    new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
+    mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
+    '上层车道',
+    new THREE.Vector3(0, 2.7, 0),
+    new THREE.Vector3(0, 8.1, 0),
+    new THREE.Vector3(0, 3.7, 0)
+  );
+  const lowerLane = addPart(
+    new RoundedBoxGeometry(10.8, 0.18, 12, 4, 0.05),
+    mat(COLORS.lane, { opacity: 0.98, roughness: 0.98 }),
+    '下层车道',
+    new THREE.Vector3(0, -3.1, 0),
+    new THREE.Vector3(0, -8.4, 0),
+    new THREE.Vector3(0, -2.3, 0)
+  );
+  addLaneStripMarks(upperLane.mesh);
+  addLaneStripMarks(lowerLane.mesh);
+  addBarrierRails(upperLane.mesh, 4.95);
+  addBarrierRails(upperLane.mesh, -4.95);
+  addBarrierRails(lowerLane.mesh, 4.95);
+  addBarrierRails(lowerLane.mesh, -4.95);
+
+  const rightWall = addPart(
+    new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
+    mat(COLORS.sideWall, { opacity: 0.94, roughness: 0.88 }),
+    '侧墙',
+    new THREE.Vector3(5.7, -0.2, 0),
+    new THREE.Vector3(8.5, -0.2, 0),
+    new THREE.Vector3(6.7, -0.3, 0)
+  );
+  const leftWall = addPart(
+    new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
+    mat(COLORS.sideWall, { opacity: 0.94, roughness: 0.88 }),
+    '侧墙',
+    new THREE.Vector3(-5.7, -0.2, 0),
+    new THREE.Vector3(-8.5, -0.2, 0)
+  );
+  [rightWall, leftWall].forEach((wallPart) => {
+    const cap = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.16, 12.05), mat(COLORS.steel, { roughness: 0.74 })), false, true);
+    cap.position.set(0, 3.55, 0);
+    wallPart.mesh.add(cap);
+  });
+
+  const utilityPart = addPart(
+    new RoundedBoxGeometry(1.2, 1.1, 12, 4, 0.05),
+    mat(COLORS.utility, { opacity: 0.94, roughness: 0.72 }),
+    '设备带',
+    new THREE.Vector3(-4.8, 4.2, 0),
+    new THREE.Vector3(-8.1, 6.3, 0),
+    new THREE.Vector3(-6.5, 5.2, 0)
+  );
+  for (const z of [-4, -1.2, 1.6, 4.2]) {
+    const bracket = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.4, 0.16), mat(COLORS.steel, { roughness: 0.62 })), false, true);
+    bracket.position.set(-0.72, -0.1, z);
+    utilityPart.mesh.add(bracket);
+  }
+
+  const cablePart = addPart(
+    new THREE.CylinderGeometry(0.34, 0.34, 12, 20),
+    mat(0x5d91b0, { opacity: 0.96, roughness: 0.5 }),
+    '电缆管廊',
+    new THREE.Vector3(-5, -4.6, 0),
+    new THREE.Vector3(-8.2, -6.8, 0),
+    new THREE.Vector3(-6.9, -5.5, 0)
+  );
+  cablePart.mesh.rotation.x = Math.PI / 2;
+  for (const y of [-0.26, 0.26]) {
+    const conduit = configureMesh(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 12.05, 12), mat(COLORS.linework, {
+      opacity: 0.9,
+      roughness: 0.45,
+    })), false, true);
+    conduit.rotation.x = Math.PI / 2;
+    conduit.position.set(0, y, 0);
+    cablePart.mesh.add(conduit);
+  }
+
+  const smokePart = addPart(
+    new RoundedBoxGeometry(2.6, 0.85, 12, 4, 0.08),
+    mat(0xb2c1c9, { opacity: 0.92, roughness: 0.62 }),
+    '排烟通道',
+    new THREE.Vector3(0, 5.7, 0),
+    new THREE.Vector3(0, 10.2, 0),
+    new THREE.Vector3(0, 7.2, 0)
+  );
+  for (const z of [-4.4, -2.6, -0.8, 1, 2.8, 4.6]) {
+    const slot = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(2.08, 0.06, 0.16), mat(COLORS.linework, { opacity: 0.8, roughness: 0.82 })), false, true);
+    slot.position.set(0, 0.18, z);
+    smokePart.mesh.add(slot);
+  }
+
+  addCrossLights();
+  buildHeroCutAssembly();
 }
 
 buildCity();
@@ -165,11 +668,11 @@ keyNames.forEach((name) => {
 });
 
 const scenes = [
-  { title: 'Scene 1 · 整体走向：显露春风隧道单洞双层地下走向。', duration: 12 },
-  { title: `Scene 2 · 核心参数：外径 ${DIMENSIONS.outerDiameter}m，内径 ${DIMENSIONS.innerDiameter}m。`, duration: 12 },
-  { title: 'Scene 3 · 爆炸分解：各功能组件动态展开演示。', duration: 12 },
-  { title: 'Scene 4 · 纵向剖面：两端明挖门户段与中间盾构段关系。', duration: 12 },
-  { title: 'Scene 5 · 全景总览：单洞双层剖切全景展示。', duration: 12 },
+  { title: 'Scene 1 · 整体走向：以更接近真实城区与洞体关系的方式展示单洞双层走向。', duration: 12 },
+  { title: `Scene 2 · 核心参数：外径 ${DIMENSIONS.outerDiameter}m、内径 ${DIMENSIONS.innerDiameter}m，衬砌与双层车道同步显现。`, duration: 12 },
+  { title: 'Scene 3 · 爆炸分解：衬砌分环、双层路面、附属设备与排烟系统展开演示。', duration: 12 },
+  { title: 'Scene 4 · 纵向剖面：门户明挖段与中部盾构段关系更加明确。', duration: 12 },
+  { title: 'Scene 5 · 全景总览：剖切镜头集中展示洞内照明与构件层次。', duration: 12 },
 ];
 
 const totalDuration = scenes.reduce((a, s) => a + s.duration, 0);
@@ -223,8 +726,7 @@ function updateLabels(active) {
   if (!showLabels || !active) return;
 
   for (const part of componentParts) {
-    if (!labelMap.has(part.name)) continue;
-    if (part.name === '侧墙') continue;
+    if (!labelMap.has(part.name) || part.name === '侧墙') continue;
     tmp.copy(part.labelPos).applyMatrix4(crossGroup.matrixWorld).project(camera);
     const visible = tmp.z > -1 && tmp.z < 1;
     const x = (tmp.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
@@ -240,39 +742,53 @@ function animateScene() {
   const index = getSceneIndex();
   const p = sceneProgress(index);
   captionEl.textContent = scenes[index].title;
+  const heroFocus = index === 4 ? 1 : 0;
+  const crossFocus = index === 1 || index === 2 ? 1 : 0;
+
+  hemiLight.intensity = THREE.MathUtils.lerp(1.02, 0.5, heroFocus);
+  ambientLight.intensity = THREE.MathUtils.lerp(0.24, 0.08, heroFocus);
+  keyLight.intensity = THREE.MathUtils.lerp(1.45, 0.82, heroFocus);
+  fillLight.intensity = THREE.MathUtils.lerp(0.6, 0.34, heroFocus);
+  rimLight.intensity = THREE.MathUtils.lerp(0.95, 0.42, heroFocus);
+  underLight.intensity = THREE.MathUtils.lerp(0.28, 0.12, heroFocus);
+  crossLights.forEach((light) => {
+    light.intensity = THREE.MathUtils.lerp(0.14, 0.42, crossFocus);
+  });
+  heroLights.forEach((light) => {
+    light.intensity = THREE.MathUtils.lerp(0.28, light.distance > 14 ? 0.95 : 0.68, heroFocus);
+  });
 
   cityGroup.visible = index <= 1;
   tunnelGroup.visible = index === 0 || index === 3;
-  crossGroup.visible = index >= 1;
+  crossGroup.visible = index >= 1 && index !== 4;
   longitudinalGroup.visible = index === 3;
   heroCutGroup.visible = index === 4;
 
   if (index === 0) {
-    camera.position.copy(mixVec(new THREE.Vector3(42, 34, 62), new THREE.Vector3(20, -12, 35), p));
+    camera.position.copy(mixVec(new THREE.Vector3(46, 38, 64), new THREE.Vector3(22, -10, 36), p));
     camera.lookAt(0, -12, 0);
-    cityGroup.traverse((obj) => {
-      if (obj.material) obj.material.opacity = THREE.MathUtils.lerp(0.85, 0.1, p);
-    });
+    setGroupOpacity(cityGroup, THREE.MathUtils.lerp(1, 0.14, p));
+  } else {
+    setGroupOpacity(cityGroup, 1);
   }
 
   if (index === 1) {
-    camera.position.set(20 * Math.cos(p * Math.PI * 0.5), -17 + 3 * Math.sin(p * Math.PI), 20 * Math.sin(p * Math.PI * 0.5));
+    camera.position.set(21 * Math.cos(p * Math.PI * 0.5), -16.8 + 2.8 * Math.sin(p * Math.PI), 21 * Math.sin(p * Math.PI * 0.5));
     camera.lookAt(0, -17, 0);
     componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
   }
 
   if (index === 2) {
     const pulse = Math.sin(p * Math.PI);
-    camera.position.set(18, -16.3, 18);
+    camera.position.set(18, -16.1, 18);
     camera.lookAt(0, -17.5, 0);
     componentParts.forEach((part) => {
-      const t = pulse * 0.95;
-      part.mesh.position.copy(mixVec(part.basePos, part.explodePos, t));
+      part.mesh.position.copy(mixVec(part.basePos, part.explodePos, pulse * 0.95));
     });
   }
 
   if (index === 3) {
-    camera.position.copy(mixVec(new THREE.Vector3(54, 20, 48), new THREE.Vector3(64, 12, 20), p));
+    camera.position.copy(mixVec(new THREE.Vector3(56, 22, 50), new THREE.Vector3(66, 12, 22), p));
     camera.lookAt(0, -1, 0);
     componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
     crossGroup.position.set(-40 + 40 * (1 - p), -18, 0);
@@ -281,12 +797,12 @@ function animateScene() {
   }
 
   if (index === 4) {
-    camera.position.copy(mixVec(new THREE.Vector3(30, -4, 34), new THREE.Vector3(25, -8, 22), p));
-    camera.lookAt(4, -17, -3);
+    camera.position.copy(mixVec(new THREE.Vector3(21, -5.5, 17), new THREE.Vector3(12, -9.4, 9), p));
+    camera.lookAt(18.5, -16.2, -0.5);
     componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
   }
 
-  updateLabels(index >= 1 && index !== 3);
+  updateLabels(index >= 1 && index !== 3 && index !== 4);
 }
 
 function resize() {
@@ -298,11 +814,9 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 
-// 核心修复：针对手机端的视口高度变化进行实时监听
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
-// 阻止页面默认滑动行为，避免 3D 交互冲突
 document.addEventListener('touchmove', (e) => {
   if (e.target.closest('#scene-wrap')) e.preventDefault();
 }, { passive: false });
