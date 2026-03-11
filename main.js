@@ -832,15 +832,31 @@ function buildCrossSection() {
     new THREE.Vector3(18.2, 10.1, 0)
   );
   const fillPart = addPart(
-    createGroundBandGeometry(58, 18.8, 12.8),
+    createGroundBandGeometry(58, 18.8, 16.2),
     mat(COLORS.fillLayer, { roughness: 0.94 }),
     '人工填土层',
     new THREE.Vector3(0, 0, -8),
     new THREE.Vector3(0, 0, -8),
-    new THREE.Vector3(-18.5, 15.8, 0)
+    new THREE.Vector3(-18.5, 17.6, 0)
+  );
+  const alluvialPart = addPart(
+    createGroundBandGeometry(58, 16.2, 12.8),
+    mat(0xab8664, { roughness: 0.95 }),
+    '冲洪积层',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(-18.2, 14.3, 0)
+  );
+  const residualPart = addPart(
+    createGroundBandGeometry(58, 7.2, 2.4),
+    mat(0x756453, { roughness: 0.96 }),
+    '残积层',
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(18.3, 4.8, 0)
   );
   const waterPart = addPart(
-    createGroundBandGeometry(58, 11.25, 10.9, DIMENSIONS.excavDiameter / 2 + 0.7),
+    new THREE.BoxGeometry(58, 0.22, 0.2),
     mat(COLORS.groundwater, {
       opacity: 0.95,
       roughness: 0.3,
@@ -852,15 +868,16 @@ function buildCrossSection() {
       polygonOffsetUnits: -1,
     }),
     '地下水位',
-    new THREE.Vector3(0, 0, -8),
-    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 11.08, 8.18),
+    new THREE.Vector3(0, 11.08, 8.18),
     new THREE.Vector3(18.5, 11.8, 0)
   );
+  waterPart.mesh.renderOrder = 18;
 
   const faultPart = addPart(
-    new THREE.BoxGeometry(4, 31, 16.1),
+    new THREE.BoxGeometry(4.3, 31, 0.3),
     mat(COLORS.faultLayer, {
-      opacity: 1,
+      opacity: 0.96,
       roughness: 0.94,
       depthWrite: true,
       polygonOffset: true,
@@ -868,31 +885,33 @@ function buildCrossSection() {
       polygonOffsetUnits: 1,
     }),
     '断层破碎带',
-    new THREE.Vector3(15.6, 0.8, 0),
-    new THREE.Vector3(15.6, 0.8, 0),
+    new THREE.Vector3(15.6, 0.8, 8.26),
+    new THREE.Vector3(15.6, 0.8, 8.26),
     new THREE.Vector3(17.2, 4.8, 0)
   );
   faultPart.mesh.rotation.z = -0.3;
+  faultPart.mesh.renderOrder = 19;
   for (const y of [-10.5, -6.2, -1.8, 2.6, 7.1, 11.4]) {
     const faultStripe = configureMesh(new THREE.Mesh(
-      new THREE.BoxGeometry(3.2, 0.12, 0.08),
+      new THREE.BoxGeometry(3.2, 0.12, 0.05),
       mat(0x6b4b3c, { roughness: 0.92, emissive: 0x3d281f, emissiveIntensity: 0.05 })
     ), false, true);
-    faultStripe.position.set(0, y, 8.12);
+    faultStripe.position.set(0, y, 0.18);
     faultPart.mesh.add(faultStripe);
   }
 
-  const frontBoundaryMat = new THREE.LineBasicMaterial({ color: 0x2f373c, transparent: true, opacity: 0.9 });
-  for (const y of [12.8, 7.2]) {
-    const boundary = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-29, y, 8.04),
-        new THREE.Vector3(-8.5, y, 8.04),
-        new THREE.Vector3(8.5, y, 8.04),
-        new THREE.Vector3(29, y, 8.04),
-      ]),
-      frontBoundaryMat
-    );
+  for (const y of [16.2, 12.8, 7.2, 2.4]) {
+    const boundary = configureMesh(new THREE.Mesh(
+      new THREE.BoxGeometry(58, 0.08, 0.05),
+      mat(0x2f373c, {
+        roughness: 0.86,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      })
+    ), false, true);
+    boundary.position.set(0, y, 8.2);
+    boundary.renderOrder = 17;
     crossGroup.add(boundary);
   }
 
@@ -921,6 +940,23 @@ function buildCrossSection() {
     const sidewalk = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.24, 16.1), mat(COLORS.sidewalk, { roughness: 0.92 })), false, true);
     sidewalk.position.set(x, 0.35, 0);
     surfaceRoad.mesh.add(sidewalk);
+  }
+  const bikeLane = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.06, 16.1), mat(0x4c8f67, {
+    roughness: 0.94,
+  })), false, true);
+  bikeLane.position.set(-13.7, 0.31, 0);
+  surfaceRoad.mesh.add(bikeLane);
+  const bikeDivider = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 16.1), mat(0xbcb9a8, {
+    roughness: 0.9,
+  })), false, true);
+  bikeDivider.position.set(-11.95, 0.4, 0);
+  surfaceRoad.mesh.add(bikeDivider);
+  for (const x of [-18.1, -9.9, 9.8, 18.1]) {
+    const curb = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 16.1), mat(0xe0ded3, {
+      roughness: 0.92,
+    })), false, true);
+    curb.position.set(x, 0.42, 0);
+    surfaceRoad.mesh.add(curb);
   }
 
   const ringPart = addPart(
@@ -980,10 +1016,10 @@ function buildCrossSection() {
   addBarrierRails(lowerLane.mesh, -4.95);
   addDeckRoadsideDetails(upperLane.mesh, 1);
   addDeckRoadsideDetails(lowerLane.mesh, 1);
-  addLaneArrow(upperLane.mesh, -1.2, -3.3);
-  addLaneArrow(upperLane.mesh, 1.35, 1.5);
-  addLaneArrow(lowerLane.mesh, -1.2, -2.9);
-  addLaneArrow(lowerLane.mesh, 1.35, 1.9);
+  addLaneArrow(upperLane.mesh, -1.2, -3.3, 0);
+  addLaneArrow(upperLane.mesh, 1.35, 1.5, 0);
+  addLaneArrow(lowerLane.mesh, -1.2, -2.9, Math.PI);
+  addLaneArrow(lowerLane.mesh, 1.35, 1.9, Math.PI);
 
   const rightWall = addPart(
     new RoundedBoxGeometry(0.55, 7.2, 12, 4, 0.05),
@@ -1066,7 +1102,7 @@ buildCrossSection();
 
 const labelLayer = document.querySelector('#label-layer');
 const labelMap = new Map();
-const keyNames = ['春风路地表', '人工填土层', '强风化层', '断层破碎带', '硬岩层', '地下水位', '预制衬砌', '车道板', '上层车道', '下层车道', '侧墙', '设备带', '电缆管廊', '排烟通道'];
+const keyNames = ['春风路地表', '人工填土层', '冲洪积层', '强风化层', '残积层', '断层破碎带', '硬岩层', '地下水位', '预制衬砌', '车道板', '上层车道', '下层车道', '侧墙', '设备带', '电缆管廊', '排烟通道'];
 keyNames.forEach((name) => {
   const div = document.createElement('div');
   div.className = 'label';
@@ -1079,7 +1115,7 @@ let showLabels = true;
 let compactUI = false;
 let labelsTouched = false;
 
-const compactVisibleLabels = new Set(['春风路地表', '硬岩层', '上层车道', '下层车道']);
+const compactVisibleLabels = new Set(['春风路地表', '冲洪积层', '硬岩层', '上层车道', '下层车道']);
 
 const captionEl = document.querySelector('#scene-caption');
 const resetBtn = document.querySelector('#reset-view');
@@ -1195,7 +1231,7 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 
-captionEl.innerHTML = `沿春风路（滨河大道上步立交—新秀立交）典型剖面示意。<br>盾构段约 3.6km，埋深 6.9-46.3m，地层呈上软下硬，80% 以上为硬岩，并穿越 11 条断层破碎带。`;
+captionEl.innerHTML = `沿春风路（滨河大道上步立交—新秀立交）典型剖面示意。<br>地表参考罗湖段“机非分离、慢行与绿化提升”道路环境；地下按人工填土—冲洪积层—强风化/残积层—下伏硬岩表达，并保留地下水与断层破碎带特征。`;
 labelToggle.addEventListener('change', (e) => {
   labelsTouched = true;
   showLabels = e.target.checked;
