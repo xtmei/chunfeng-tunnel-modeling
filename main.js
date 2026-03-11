@@ -60,7 +60,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(COLORS.bgFog, 65, 250);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.6, 260);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
@@ -1115,8 +1115,10 @@ const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
 const desktopCameraPosition = new THREE.Vector3(20, 10.5, 24);
 const desktopTarget = new THREE.Vector3(0, 0.8, 0);
-const mobileCameraPosition = new THREE.Vector3(29, 15.5, 40);
-const mobileTarget = new THREE.Vector3(0, 1.6, 0);
+const mobileCameraPosition = new THREE.Vector3(24, 8.4, 34);
+const mobileTarget = new THREE.Vector3(0, -0.3, 0);
+const desktopCrossRotation = new THREE.Euler(0.02, -0.34, 0);
+const mobileCrossRotation = new THREE.Euler(0.2, -0.52, 0);
 const tmp = new THREE.Vector3();
 const worldLabelPos = new THREE.Vector3();
 const localCameraPos = new THREE.Vector3();
@@ -1129,8 +1131,9 @@ function applyInteractiveLayout() {
   longitudinalGroup.visible = false;
   heroCutGroup.visible = false;
   crossGroup.visible = true;
-  crossGroup.rotation.set(0, -0.34, 0);
-  crossGroup.position.set(0, 0, 0);
+  const crossRotation = compactUI ? mobileCrossRotation : desktopCrossRotation;
+  crossGroup.rotation.copy(crossRotation);
+  crossGroup.position.set(0, compactUI ? -0.35 : 0, 0);
   componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
 
   hemiLight.intensity = 0.95;
@@ -1156,6 +1159,7 @@ function resetView() {
 }
 
 function updateResponsiveFlags() {
+  const wasCompactUI = compactUI;
   compactUI = window.matchMedia('(max-width: 680px), (max-height: 760px) and (pointer: coarse)').matches || window.innerWidth < 680;
   document.body.classList.toggle('compact-ui', compactUI);
 
@@ -1165,7 +1169,12 @@ function updateResponsiveFlags() {
   }
 
   controls.minDistance = compactUI ? 10 : 10;
-  controls.maxDistance = compactUI ? 78 : 52;
+  controls.maxDistance = compactUI ? 82 : 52;
+
+  if (wasCompactUI !== compactUI) {
+    applyInteractiveLayout();
+    resetView();
+  }
 }
 
 function syncViewportHeight() {
