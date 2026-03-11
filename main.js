@@ -679,18 +679,48 @@ const totalDuration = scenes.reduce((a, s) => a + s.duration, 0);
 let timeline = 0;
 let autoPlay = true;
 let showLabels = true;
+let compactUI = false;
+let labelsTouched = false;
+
+const compactVisibleLabels = new Set(['预制衬砌', '上层车道', '下层车道', '排烟通道']);
 
 const captionEl = document.querySelector('#scene-caption');
 const progress = document.querySelector('#progress');
 const playBtn = document.querySelector('#play');
+const prevBtn = document.querySelector('#prev');
+const nextBtn = document.querySelector('#next');
+const labelToggle = document.querySelector('#toggle-labels');
+const sceneWrap = document.querySelector('#scene-wrap');
 
-document.querySelector('#toggle-labels').addEventListener('change', (e) => (showLabels = e.target.checked));
-playBtn.addEventListener('click', () => {
-  autoPlay = !autoPlay;
+function setAutoPlay(nextState) {
+  autoPlay = nextState;
   playBtn.textContent = autoPlay ? '暂停' : '播放';
+}
+
+function updateResponsiveFlags() {
+  compactUI = window.matchMedia('(max-width: 680px), (max-height: 760px) and (pointer: coarse)').matches || window.innerWidth < 680;
+  document.body.classList.toggle('compact-ui', compactUI);
+
+  if (!labelsTouched) {
+    showLabels = !compactUI;
+    labelToggle.checked = showLabels;
+  }
+}
+
+function syncViewportHeight() {
+  const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
+}
+
+labelToggle.addEventListener('change', (e) => {
+  labelsTouched = true;
+  showLabels = e.target.checked;
 });
-document.querySelector('#prev').addEventListener('click', () => jumpScene(-1));
-document.querySelector('#next').addEventListener('click', () => jumpScene(1));
+playBtn.addEventListener('click', () => {
+  setAutoPlay(!autoPlay);
+});
+prevBtn.addEventListener('click', () => jumpScene(-1));
+nextBtn.addEventListener('click', () => jumpScene(1));
 progress.addEventListener('input', (e) => (timeline = Number(e.target.value) * totalDuration));
 
 function jumpScene(dir) {
@@ -725,12 +755,16 @@ function updateLabels(active) {
   labelMap.forEach((el) => (el.style.opacity = '0'));
   if (!showLabels || !active) return;
 
+  const xInset = compactUI ? 42 : 18;
+  const yInset = compactUI ? 34 : 16;
+
   for (const part of componentParts) {
     if (!labelMap.has(part.name) || part.name === '侧墙') continue;
+    if (compactUI && !compactVisibleLabels.has(part.name)) continue;
     tmp.copy(part.labelPos).applyMatrix4(crossGroup.matrixWorld).project(camera);
     const visible = tmp.z > -1 && tmp.z < 1;
-    const x = (tmp.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
-    const y = (-tmp.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
+    const x = THREE.MathUtils.clamp((tmp.x * 0.5 + 0.5) * renderer.domElement.clientWidth, xInset, renderer.domElement.clientWidth - xInset);
+    const y = THREE.MathUtils.clamp((-tmp.y * 0.5 + 0.5) * renderer.domElement.clientHeight, yInset, renderer.domElement.clientHeight - yInset);
     const el = labelMap.get(part.name);
     el.style.opacity = visible ? '1' : '0';
     el.style.left = `${x}px`;
@@ -806,7 +840,9 @@ function animateScene() {
 }
 
 function resize() {
-  const container = document.querySelector('#scene-wrap');
+  syncViewportHeight();
+  updateResponsiveFlags();
+  const container = sceneWrap;
   const w = container.clientWidth;
   const h = container.clientHeight;
   renderer.setSize(w, h, false);
@@ -816,6 +852,31 @@ function resize() {
 
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+}
+
+let pointerStartX = 0;
+let pointerStartY = 0;
+let activePointerId = null;
+sceneWrap.addEventListener('pointerdown', (e) => {
+  if (!compactUI) return;
+  activePointerId = e.pointerId;
+  pointerStartX = e.clientX;
+  pointerStartY = e.clientY;
+});
+sceneWrap.addEventListener('pointerup', (e) => {
+  if (!compactUI || activePointerId !== e.pointerId) return;
+  const dx = e.clientX - pointerStartX;
+  const dy = e.clientY - pointerStartY;
+  activePointerId = null;
+  if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  setAutoPlay(false);
+  jumpScene(dx < 0 ? 1 : -1);
+});
+sceneWrap.addEventListener('pointercancel', () => {
+  activePointerId = null;
+});
 
 document.addEventListener('touchmove', (e) => {
   if (e.target.closest('#scene-wrap')) e.preventDefault();

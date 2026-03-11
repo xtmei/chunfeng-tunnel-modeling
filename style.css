@@ -6,23 +6,33 @@
   --sub: #9fb9d3;
   --accent: #4fd1ff;
   --orange: #ff9a3d;
+  --app-height: 100vh;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { 
   margin: 0; 
   height: 100%; 
+  min-height: var(--app-height);
   overflow: hidden;
   font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; 
   background: radial-gradient(circle at 50% -20%, #1a355f 0%, var(--bg) 58%); 
   color: var(--text); 
   touch-action: none; /* 防止浏览器默认手势干扰 3D 交互 */
+  overscroll-behavior: none;
 }
 
-#app { height: 100%; display: flex; flex-direction: column; }
+#app {
+  width: 100%;
+  height: var(--app-height);
+  min-height: var(--app-height);
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
 
 .hero-title { 
-  padding: 12px 16px 6px; 
+  padding: max(12px, env(safe-area-inset-top, 0px)) 16px 6px; 
   text-align: center; 
   backdrop-filter: blur(8px); 
   z-index: 10;
@@ -89,10 +99,18 @@ html, body {
   display: flex; 
   align-items: center; 
   gap: 8px; 
-  padding: 12px 16px env(safe-area-inset-bottom, 12px);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: rgba(4, 16, 32, 0.95); 
   border-top: 1px solid var(--line);
+  backdrop-filter: blur(12px);
   z-index: 20;
+}
+
+.top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .btn-group {
@@ -111,8 +129,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 60px;
+  min-width: 68px;
+  min-height: 44px;
   transition: all 0.2s;
+  touch-action: manipulation;
 }
 
 button:active {
@@ -131,9 +151,10 @@ button:active {
 }
 #progress { 
   width: 100%; 
-  height: 24px;
+  min-height: 32px;
   accent-color: var(--accent); 
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .switch-wrap { 
@@ -143,15 +164,88 @@ button:active {
   color: var(--sub); 
   font-size: 12px; 
   white-space: nowrap; 
+  min-height: 44px;
 }
 
 #toggle-labels {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
 }
 
-@media (max-width: 600px) {
+body.compact-ui .hero-title {
+  padding: max(10px, env(safe-area-inset-top, 0px)) 12px 4px;
+}
+
+body.compact-ui .hero-title h1 {
+  font-size: clamp(16px, 5vw, 20px);
+  line-height: 1.25;
+}
+
+body.compact-ui .hero-title p {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+body.compact-ui .label {
+  max-width: 84px;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+}
+
+body.compact-ui .scene-caption {
+  left: 8px;
+  right: 8px;
+  bottom: calc(134px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+body.compact-ui .control-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+body.compact-ui .top-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+body.compact-ui .btn-group {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.compact-ui button {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 8px;
+  font-size: 13px;
+}
+
+body.compact-ui .switch-wrap {
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(10, 24, 46, 0.58);
+}
+
+body.compact-ui .progress-wrap {
+  width: 100%;
+}
+
+@media (max-width: 680px) {
   .control-bar { 
     flex-direction: column; 
     align-items: stretch;
