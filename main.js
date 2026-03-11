@@ -112,6 +112,7 @@ root.add(cityGroup, tunnelGroup, crossGroup, longitudinalGroup, heroCutGroup);
 
 const crossLights = [];
 const heroLights = [];
+const sectionForegroundOverlays = [];
 
 function configureMesh(mesh, castShadow = true, receiveShadow = true) {
   mesh.castShadow = castShadow;
@@ -883,6 +884,7 @@ function buildCrossSection() {
   );
   faultPart.mesh.rotation.z = -0.3;
   faultPart.mesh.renderOrder = 19;
+  sectionForegroundOverlays.push(faultPart.mesh);
   for (const y of [-10.5, -6.2, -1.8, 2.6, 7.1, 11.4]) {
     const faultStripe = configureMesh(new THREE.Mesh(
       new THREE.BoxGeometry(3.2, 0.12, 0.05),
@@ -905,6 +907,7 @@ function buildCrossSection() {
     boundary.position.set(0, y, 8.2);
     boundary.renderOrder = 17;
     crossGroup.add(boundary);
+    sectionForegroundOverlays.push(boundary);
   }
 
   const surfaceRoad = addPart(
@@ -1108,17 +1111,18 @@ let compactUI = false;
 let labelsTouched = false;
 
 const compactVisibleLabels = new Set(['春风路地表', '冲洪积层', '硬岩层', '上层车道', '下层车道']);
+const contextualSectionParts = new Set(['春风路地表', '人工填土层', '冲洪积层', '强风化层', '残积层', '断层破碎带', '硬岩层', '地下水位']);
 
 const captionEl = document.querySelector('#scene-caption');
 const resetBtn = document.querySelector('#reset-view');
 const labelToggle = document.querySelector('#toggle-labels');
 const sceneWrap = document.querySelector('#scene-wrap');
-const desktopCameraPosition = new THREE.Vector3(20, 10.5, 24);
-const desktopTarget = new THREE.Vector3(0, 0.8, 0);
-const mobileCameraPosition = new THREE.Vector3(24, 8.4, 34);
-const mobileTarget = new THREE.Vector3(0, -0.3, 0);
-const desktopCrossRotation = new THREE.Euler(0.02, -0.34, 0);
-const mobileCrossRotation = new THREE.Euler(0.2, -0.52, 0);
+const desktopCameraPosition = new THREE.Vector3(2.4, 0.9, 22);
+const desktopTarget = new THREE.Vector3(0, 0, 0);
+const mobileCameraPosition = new THREE.Vector3(1.9, 0.7, 23);
+const mobileTarget = new THREE.Vector3(0, 0, 0);
+const desktopCrossRotation = new THREE.Euler(0, 0, 0);
+const mobileCrossRotation = new THREE.Euler(0, 0, 0);
 const tmp = new THREE.Vector3();
 const worldLabelPos = new THREE.Vector3();
 const localCameraPos = new THREE.Vector3();
@@ -1133,8 +1137,15 @@ function applyInteractiveLayout() {
   crossGroup.visible = true;
   const crossRotation = compactUI ? mobileCrossRotation : desktopCrossRotation;
   crossGroup.rotation.copy(crossRotation);
-  crossGroup.position.set(0, compactUI ? -0.35 : 0, 0);
-  componentParts.forEach((part) => part.mesh.position.copy(part.basePos));
+  crossGroup.position.set(0, 0, 0);
+  componentParts.forEach((part) => {
+    part.mesh.position.copy(part.basePos);
+    part.mesh.visible = !contextualSectionParts.has(part.name);
+  });
+  // Keep geological overlays out of the default sightline so both road decks read clearly.
+  sectionForegroundOverlays.forEach((overlay) => {
+    overlay.visible = false;
+  });
 
   hemiLight.intensity = 0.95;
   ambientLight.intensity = 0.22;
