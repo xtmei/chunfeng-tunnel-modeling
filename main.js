@@ -185,10 +185,12 @@ function createGroundBandGeometry(width, topY, bottomY, holeRadius = DIMENSIONS.
 
 function addLaneStripMarks(parent, y = 0.18, width = 10.8, length = 12) {
   const edgeWidth = 0.16;
-  const dashLength = 1.25;
+  const dashLength = 1.42;
   const dashCount = 5;
   const edgeLeft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(edgeWidth, 0.025, length + 0.1), mat(COLORS.marking, {
     roughness: 0.72,
+    emissive: 0xf4f4ee,
+    emissiveIntensity: 0.05,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
@@ -199,8 +201,10 @@ function addLaneStripMarks(parent, y = 0.18, width = 10.8, length = 12) {
   parent.add(edgeLeft, edgeRight);
 
   for (let i = 0; i < dashCount; i++) {
-    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, dashLength), mat(COLORS.marking, {
+    const dash = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.028, dashLength), mat(COLORS.marking, {
       roughness: 0.72,
+      emissive: 0xf4f4ee,
+      emissiveIntensity: 0.05,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
@@ -254,9 +258,11 @@ function addDeckRoadsideDetails(parent, side = 1, length = 12) {
   parent.add(shoulder);
 
   const shoulderStripe = configureMesh(new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.025, length - 0.1),
+    new THREE.BoxGeometry(0.24, 0.028, length - 0.1),
     mat(COLORS.caution, {
       roughness: 0.72,
+      emissive: COLORS.caution,
+      emissiveIntensity: 0.08,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
@@ -301,23 +307,27 @@ function addDeckRoadsideDetails(parent, side = 1, length = 12) {
 
 function addLaneArrow(parent, x, z, rotation = 0) {
   const arrowGroup = new THREE.Group();
-  const shaft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.88), mat(COLORS.marking, {
+  const shaft = configureMesh(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 1.15), mat(COLORS.marking, {
     roughness: 0.7,
+    emissive: 0xf4f4ee,
+    emissiveIntensity: 0.06,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   })), false, true);
-  shaft.position.z = -0.12;
-  const head = configureMesh(new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 3), mat(COLORS.marking, {
+  shaft.position.z = -0.18;
+  const head = configureMesh(new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.54, 3), mat(COLORS.marking, {
     roughness: 0.7,
+    emissive: 0xf4f4ee,
+    emissiveIntensity: 0.06,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   })), false, true);
   head.rotation.x = Math.PI / 2;
-  head.position.z = 0.42;
+  head.position.z = 0.56;
   arrowGroup.add(shaft, head);
-  arrowGroup.position.set(x, 0.04, z);
+  arrowGroup.position.set(x, 0.045, z);
   arrowGroup.rotation.y = rotation;
   parent.add(arrowGroup);
 }
@@ -850,9 +860,9 @@ function buildCrossSection() {
   const faultPart = addPart(
     new THREE.BoxGeometry(4, 31, 16.1),
     mat(COLORS.faultLayer, {
-      opacity: 0.16,
+      opacity: 1,
       roughness: 0.94,
-      depthWrite: false,
+      depthWrite: true,
       polygonOffset: true,
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
@@ -863,6 +873,14 @@ function buildCrossSection() {
     new THREE.Vector3(17.2, 4.8, 0)
   );
   faultPart.mesh.rotation.z = -0.3;
+  for (const y of [-10.5, -6.2, -1.8, 2.6, 7.1, 11.4]) {
+    const faultStripe = configureMesh(new THREE.Mesh(
+      new THREE.BoxGeometry(3.2, 0.12, 0.08),
+      mat(0x6b4b3c, { roughness: 0.92, emissive: 0x3d281f, emissiveIntensity: 0.05 })
+    ), false, true);
+    faultStripe.position.set(0, y, 8.12);
+    faultPart.mesh.add(faultStripe);
+  }
 
   const frontBoundaryMat = new THREE.LineBasicMaterial({ color: 0x2f373c, transparent: true, opacity: 0.9 });
   for (const y of [12.8, 7.2]) {
